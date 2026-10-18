@@ -18,7 +18,7 @@
         "select": "channel",
         "channelId": {
           "__rl": true,
-          "value": "C0C1JJXH0DV",
+          "value": "YOUR_SLACK_CHANNEL_ID",
           "mode": "list",
           "cachedResultName": "errors-in-n8n"
         },
@@ -37,7 +37,7 @@
     },
     {
       "parameters": {
-        "sendTo": "mtahir.data@gmail.com",
+        "sendTo": "owner@example.com",
         "subject": "=⚠️ Workflow Error — {{ $json.workflow.id }} — {{ $json.execution.lastNodeExecuted || 'unknown node' }}",
         "message": "=<!DOCTYPE html>\n<html>\n<body style=\"font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;\">\n  <div style=\"max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;\">\n    \n    <div style=\"background-color: #d32f2f; color: #ffffff; padding: 20px 24px;\">\n      <h2 style=\"margin: 0; font-size: 20px;\">🚨 n8n Workflow Error</h2>\n    </div>\n\n    <div style=\"padding: 24px;\">\n      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">\n        <tr>\n          <td style=\"padding: 8px 0; color: #666; width: 140px; vertical-align: top;\"><strong>Workflow ID</strong></td>\n          <td style=\"padding: 8px 0;\">{{ $json.workflow.id || 'unknown' }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 0; color: #666; vertical-align: top;\"><strong>Execution ID</strong></td>\n          <td style=\"padding: 8px 0;\">{{ $json.execution.id || 'unknown' }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 0; color: #666; vertical-align: top;\"><strong>Failed Node</strong></td>\n          <td style=\"padding: 8px 0;\">{{ $json.execution.lastNodeExecuted || 'unknown' }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 0; color: #666; vertical-align: top;\"><strong>Mode</strong></td>\n          <td style=\"padding: 8px 0;\">{{ $json.execution.mode || 'unknown' }}</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 8px 0; color: #666; vertical-align: top;\"><strong>Failed At</strong></td>\n            <td style=\"padding: 8px 0;\">{{ $now.format('yyyy-MM-dd hh:mm a') }}</td>\n        </tr>\n      </table>\n\n      <div style=\"margin-top: 16px;\">\n        <p style=\"margin: 0 0 8px; color: #666; font-size: 14px;\"><strong>Error Message</strong></p>\n        <div style=\"background: #fdecea; border-left: 4px solid #d32f2f; padding: 12px 16px; border-radius: 4px; font-family: monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word;\">{{ $json.execution.error.message || 'No message' }}</div>\n      </div>\n\n      <div style=\"margin-top: 24px; text-align: center;\">\n        <a href=\"{{ $json.execution.url }}\" style=\"background-color: #d32f2f; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; display: inline-block;\">View Execution</a>\n      </div>\n    </div>\n\n    <div style=\"background: #f4f4f4; padding: 12px 24px; font-size: 12px; color: #999; text-align: center;\">\n      Sent by your n8n error handler workflow\n    </div>\n  </div>\n</body>\n</html>",
         "options": {

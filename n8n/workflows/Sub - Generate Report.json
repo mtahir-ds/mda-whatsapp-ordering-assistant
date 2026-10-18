@@ -223,7 +223,7 @@
     },
     {
       "parameters": {
-        "sendTo": "mtahir.data@gmail.com",
+        "sendTo": "owner@example.com",
         "subject": "={{ $json.period_label }} Report — MDA Restaurant",
         "message": "={{ $json.html }}",
         "options": {

@@ -1,0 +1,316 @@
+{
+  "name": "Owner - Add Restaurant Info",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "MDA Restaurant — Add Restaurant Info",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Info Text",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "Info File",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -672,
+        64
+      ],
+      "id": "7d8ddf3c-d2f3-441a-809a-47d0ae3e7146",
+      "name": "On form submission"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        256
+      ],
+      "id": "24e84438-94fd-4f60-8f9b-cc0c8b928a3c",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Info_File",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        -48
+      ],
+      "id": "02d9ac0b-cf18-4302-b649-c98c80346ed8",
+      "name": "Extract from PDF"
+    },
+    {
+      "parameters": {
+        "modelName": "sentence-transformers/all-MiniLM-L6-v2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
+      "typeVersion": 1,
+      "position": [
+        496,
+        256
+      ],
+      "id": "7776b600-22f2-4164-a50c-e6510fc9605c",
+      "name": "all-MiniLM-L6-v2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b6198dfc-f731-41fc-81f7-155de547cf6b",
+              "leftValue": "={{ $binary.Info_File }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -448,
+        64
+      ],
+      "id": "71328ea3-bb2e-49e9-92fa-93edb1e1fe12",
+      "name": "File Provided?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json.text;\nconst words = text.split(/\\s+/);\nconst chunkSize = 300;\nconst chunks = [];\n\nfor (let i=0; i < words.length; i += chunkSize){\n  chunks.push(words.slice(i, i+chunkSize).join(' '));\n}\n\nreturn chunks.map(chunk => ({json: {content: chunk}}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -48
+      ],
+      "id": "12c8817b-6980-4276-ac20-44ec184152ca",
+      "name": "Chunk PDF Text"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8ff24013-d024-4c4a-8b1c-8f306276fd8c",
+              "name": "content",
+              "value": "={{ $json['Info Text'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -208,
+        160
+      ],
+      "id": "7b1776f5-ac41-43c3-af13-4d67cc1867db",
+      "name": "Set Content from Info Text"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        352,
+        48
+      ],
+      "id": "78454789-ea91-4e31-9fd1-8dd6956b8aba",
+      "name": "Merge Text Sources"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "restaurant_info",
+          "mode": "list",
+          "cachedResultName": "restaurant_info"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        576,
+        48
+      ],
+      "id": "6b014694-f309-4fac-8c36-1655132d0e59",
+      "name": "Insert into Restaurant Info Store"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "✅ Info added and searchable by the assistant",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        48
+      ],
+      "id": "05529d8a-2ba9-4576-9063-d24b71e24517",
+      "name": "Show Success Message"
+    }
+  ],
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "File Provided?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Insert into Restaurant Info Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from PDF": {
+      "main": [
+        [
+          {
+            "node": "Chunk PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "all-MiniLM-L6-v2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Insert into Restaurant Info Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Provided?": {
+      "main": [
+        [
+          {
+            "node": "Extract from PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Content from Info Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Merge Text Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Content from Info Text": {
+      "main": [
+        [
+          {
+            "node": "Merge Text Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Text Sources": {
+      "main": [
+        [
+          {
+            "node": "Insert into Restaurant Info Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert into Restaurant Info Store": {
+      "main": [
+        [
+          {
+            "node": "Show Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "2cb2e3f6-eb55-447f-864d-b559c7666d2c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "K3yfw4pStWpwkzqN",
+  "tags": []
+}

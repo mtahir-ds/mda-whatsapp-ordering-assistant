@@ -152,7 +152,7 @@
     },
     {
       "parameters": {
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('Get customer wa_id').item.json.wa_id }}",
         "template": "order_status_update|en",
         "components": {

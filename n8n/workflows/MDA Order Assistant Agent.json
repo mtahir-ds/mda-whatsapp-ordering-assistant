@@ -486,9 +486,9 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
-        "textBody": "={{ $json.text }}\n\nForm Link to update order status: https://tahirsn.app.n8n.cloud/form/3c3d31db-9616-40d5-844c-2e1fafae1a12",
+        "textBody": "={{ $json.text }}\n\nForm Link to update order status: https://YOUR-INSTANCE.app.n8n.cloud/form/YOUR_FORM_ID",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.whatsApp",
@@ -503,7 +503,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "={{ $json.text }}",
         "additionalFields": {}
@@ -631,7 +631,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "messageType": "image",
         "mediaLink": "={{ $json.imageUrl }}",
@@ -701,7 +701,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=Sorry, something went wrong on our side 🙏 Please send your message again in a minute.",
         "additionalFields": {}
@@ -895,7 +895,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=I can only read text messages for now 🙏",
         "additionalFields": {}
@@ -912,7 +912,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=Sorry 🙏 MDA Restaurant is closed right now. We're open from 11:00 AM to 11:00 PM (Karachi time). Please message us then and we'll be happy to take your order! 🍽️",
         "additionalFields": {}
@@ -1014,7 +1014,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "1240452379159211",
+        "phoneNumberId": "YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "={{ String($json.reply || '').replace(/\\*\\*(.+?)\\*\\*/g, '*$1*') }}",
         "additionalFields": {}

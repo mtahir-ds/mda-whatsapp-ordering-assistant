@@ -86,7 +86,7 @@
     {
       "parameters": {
         "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the exact change, e.g. \"Zinger Burger: Rs 650 -> Rs 700\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -144,7 +144,7 @@
     {
       "parameters": {
         "message": "={{ $fromAI('Message', `One short line describing the exact change, e.g. \"Cold Drink: mark UNAVAILABLE\"`, 'string') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -202,7 +202,7 @@
     {
       "parameters": {
         "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the exact change, e.g. \"Chef Special Biryani: stock 8 -> 20\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -264,7 +264,7 @@
     {
       "parameters": {
         "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the new item, e.g. \"ADD: Club Sandwich at Rs 450\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -331,7 +331,7 @@
     {
       "parameters": {
         "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the removal, e.g. \"REMOVE from menu: Fries\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -436,7 +436,7 @@
     {
       "parameters": {
         "message": "={{ $fromAI('approval_summary', 'One short line, e.g. \"Cold Drink (Can): make NORMAL item (no stock limit)\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -519,7 +519,7 @@
     {
       "parameters": {
         "message": "={{ $fromAI('approval_summary', 'One short line, e.g. \"NEW DEAL: Family Feast, 2x Zinger Burger + 1x Cold Drink at Rs 1500\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {
@@ -543,7 +543,7 @@
     {
       "parameters": {
         "message": "={{ $fromAI('approval_summary', 'One short line, e.g. \"Club Sandwich: category Rolls & Sandwiches -> Burgers\"') }}",
-        "phoneNumberId": "=1240452379159211",
+        "phoneNumberId": "=YOUR_PHONE_NUMBER_ID",
         "recipientPhoneNumber": "92XXXXXXXXXX",
         "approvalOptions": {
           "values": {

@@ -1,0 +1,298 @@
+{
+  "name": "Owner - Upload Menu Image",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://djzacdjzcejecchexzjz.supabase.co/storage/v1/object/restaurant-assets/{{ $json['Menu Image'][0].filename }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "Menu_Image",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1184,
+        48
+      ],
+      "id": "8f5da301-e12a-46e6-bcc9-637f52094918",
+      "name": "Upload on supabase"
+    },
+    {
+      "parameters": {
+        "jsCode": "const key = $json.Key; // e.g. \"restaurant-assets/MDA Restuarant.png\"\nconst filename = key.split('/').pop();\nconst encodedFilename = encodeURIComponent(filename);\nconst publicUrl = `https://djzacdjzcejecchexzjz.supabase.co/storage/v1/object/public/restaurant-assets/${encodedFilename}`;\n\nreturn [{json : {url: publicUrl}}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        48
+      ],
+      "id": "64a4383d-1185-4b46-b9eb-6f327eca8a38",
+      "name": "create public image url"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9a991993-afc9-4a0b-b1fd-81a7b59e88f5",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -512,
+        48
+      ],
+      "id": "8ebae0ef-32ce-452d-a00a-9ad6af82a616",
+      "name": "Existing menu image row?"
+    },
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "Uppload Restaurant Menu Image",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Menu Image",
+              "fieldType": "file",
+              "acceptFileTypes": ".jpg, .png"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -1408,
+        48
+      ],
+      "id": "a3d72b3a-fdcb-46bf-96ce-31f6dc895ff6",
+      "name": "On Menu Image Upload"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "restaurant_assets",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "asset_type",
+              "condition": "eq",
+              "keyValue": "menu_image"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        48
+      ],
+      "id": "86dd4eec-4343-4e7c-9c56-d26ef97dd6f4",
+      "name": "Check For Existing Menu Image",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "restaurant_assets",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "url",
+              "fieldValue": "={{ $('create public image url').item.json.url }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        -48
+      ],
+      "id": "503de79d-0852-4d9a-8901-0c641cc961cc",
+      "name": "Update Existing Menu Image"
+    },
+    {
+      "parameters": {
+        "tableId": "restaurant_assets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "asset_type",
+              "fieldValue": "menu_image"
+            },
+            {
+              "fieldId": "url",
+              "fieldValue": "={{ $json.url }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        160
+      ],
+      "id": "7eabd0d0-384a-4d25-af08-bdb787e5f658",
+      "name": "Insert New Menu Image Row"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "✅ Menu image updated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        -64,
+        48
+      ],
+      "id": "97474125-6623-43ae-a455-de4af75b2e97",
+      "name": "Confirmation Response"
+    }
+  ],
+  "connections": {
+    "Upload on supabase": {
+      "main": [
+        [
+          {
+            "node": "create public image url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create public image url": {
+      "main": [
+        [
+          {
+            "node": "Check For Existing Menu Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing menu image row?": {
+      "main": [
+        [
+          {
+            "node": "Update Existing Menu Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert New Menu Image Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Menu Image Upload": {
+      "main": [
+        [
+          {
+            "node": "Upload on supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check For Existing Menu Image": {
+      "main": [
+        [
+          {
+            "node": "Existing menu image row?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Existing Menu Image": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert New Menu Image Row": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "c244da69-ef75-4c3a-9998-3e20eee2c7a9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "YMCCmZiufo38XFlw",
+  "tags": []
+}

@@ -27,20 +27,7 @@ with a double approval. The menu image redraws itself whenever the menu changes.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    C["Customer WhatsApp"] --> T["n8n WhatsApp trigger"]
-    T --> M["Build live menu text from Supabase"]
-    M --> A["Customer AI agent"]
-    A -->|tools| S[("Supabase: orders, menu, deals")]
-    O["Owner WhatsApp"] --> T
-    T -->|owner number| OA["Owner menu agent"]
-    OA -->|chat YES, then WhatsApp approve| S
-    S -->|trigger: menu_change_log| W["n8n webhook, 20 s debounce"]
-    W --> E["Edge Function: SVG to PNG"]
-    E --> ST[("Storage: menu image")]
-    ST --> A
-```
+![Architecture](assets/architecture.png)
 
 | Layer | Tech |
 |---|---|
