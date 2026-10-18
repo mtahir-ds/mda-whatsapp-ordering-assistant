@@ -1,0 +1,5 @@
+node_modules/
+.env
+n8n/workflows/*.raw.json
+
+raw_exports/

@@ -1,0 +1,261 @@
+{
+  "name": "Sub - Find or Create Customer",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "wa_id"
+            },
+            {
+              "name": "name"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        16
+      ],
+      "id": "a5ba7434-e84a-45e7-97af-fa00336943ac",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "wa_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.wa_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        16
+      ],
+      "id": "943a360e-4188-4fcf-83e9-17306fada5dc",
+      "name": "Lookup Customer by WA ID",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1d07821b-41f0-4038-a8d6-38357a113670",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -272,
+        16
+      ],
+      "id": "f5cda226-d6c7-4e05-b0b9-26eac161c5df",
+      "name": "Customer Exists?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5fdf1aa0-11e0-4ca9-a571-fa2742b4839e",
+              "name": "customer_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -48,
+        -80
+      ],
+      "id": "258d2fdb-631e-4b54-b85b-1b42541357c8",
+      "name": "Set Customer ID (Existing)"
+    },
+    {
+      "parameters": {
+        "tableId": "customers",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "wa_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.wa_id }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('When Executed by Another Workflow').item.json.name }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        112
+      ],
+      "id": "960d0b24-2417-462d-8c39-565dc98cd772",
+      "name": "Create New Customer"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65189bc4-1a1b-4c62-9559-9db342ce3aa9",
+              "name": "customer_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        144,
+        112
+      ],
+      "id": "a5df78c2-7901-4e52-81c4-497791084edd",
+      "name": "Set Customer ID (New)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        432,
+        -16
+      ],
+      "id": "7fdbd250-58e2-4862-8087-d1125dfa935a",
+      "name": "Merge Customer ID",
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Lookup Customer by WA ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Customer by WA ID": {
+      "main": [
+        [
+          {
+            "node": "Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Set Customer ID (Existing)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Customer ID (Existing)": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Customer": {
+      "main": [
+        [
+          {
+            "node": "Set Customer ID (New)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Customer ID (New)": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer ID",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "5c382e61-07d5-4c94-bce9-d5686d76c800",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "pvANUYG4lqZWkAzl",
+  "tags": []
+}

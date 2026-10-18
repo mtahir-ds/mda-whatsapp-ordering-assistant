@@ -1,0 +1,656 @@
+{
+  "name": "Sub - Finalize Order",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "order_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1744,
+        304
+      ],
+      "id": "e45661ae-366a-4568-98e5-b16eb903c981",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().filter(item => item.json && item.json.line_total !== undefined);\nconst itemsTotal = items.reduce((sum, item) => sum + Number(item.json.line_total), 0);\nconst order = $('Lookup Order For Status Check').first().json;\nconst deliveryFee = Number(order.delivery_fee) || 0;\nreturn [{ json: {\n  order_id: $('Trim order_id').first().json.order_id,\n  items_total: itemsTotal,\n  total_amount: itemsTotal + deliveryFee\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        112
+      ],
+      "id": "8d969cfc-6d64-4ff0-8579-761645281667",
+      "name": "Sum Total"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "Confirmed"
+            },
+            {
+              "fieldId": "total_amount",
+              "fieldValue": "={{ $json.total_amount }}"
+            },
+            {
+              "fieldId": "subtotal_amount",
+              "fieldValue": "={{ $json.items_total }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        48,
+        16
+      ],
+      "id": "87fd2f2a-6f55-4c07-b5f4-25cb41135f7b",
+      "name": "Update Order"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb9b03d9-b8e8-416a-b930-cffdeb8f3f6f",
+              "name": "order_id",
+              "value": "={{ $json.order_id.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1520,
+        304
+      ],
+      "id": "5a099b6c-8cc4-4b4f-b2c0-98d3cfb5635c",
+      "name": "Trim order_id"
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $('Update Order').first().json;\nconst items = $('Get Order Items For Notification').all().map(i => i.json);\nconst menuItems = $('Get All Menu Items').all().map(m => m.json);\nconst customer = $('Get Customer Info').first().json;\n\n\nconst formBase = 'https://tahirsn.app.n8n.cloud/form/3c3d31db-9616-40d5-844c-2e1fafae1a12';\nconst statusLink = `${formBase}?Order%20Number=${order.order_number}`;\n\n// Customer-typed text goes into an HTML email, so escape it\nconst esc = (s) => String(s ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;');\n\nconst lines = items.map(i => {\n  const menu = menuItems.find(m => m.id === i.menu_item_id);\n  return `${i.quantity}x ${esc(menu ? menu.name : 'Unknown')} — Rs. ${i.line_total}`;\n});\n\nconst isDelivery = order.fulfillment_type === 'Delivery';\nconst deliveryFee = Number(order.delivery_fee) || 0;\n\nlet fulfillmentHtml = `<p><b>Fulfillment:</b> ${esc(order.fulfillment_type || 'Not specified')}</p>`;\n\nif (isDelivery) {\n  const hasCoords = order.delivery_lat && order.delivery_lng;\n  const mapsLink = hasCoords\n    ? `https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`\n    : null;\n  const addressText = order.delivery_address\n    ? esc(order.delivery_address)\n    : (hasCoords ? 'Shared location pin' : 'Not provided');\n\n  fulfillmentHtml += `\n    <p><b>Delivery address:</b> ${addressText}</p>\n    ${mapsLink ? `<p><a href=\"${mapsLink}\">📍 Open in Google Maps</a></p>` : ''}\n    <p><b>Delivery fee:</b> Rs. ${deliveryFee}</p>`;\n}\n\nconst html = `\n  <h2>🛎️ New Order Confirmed — #${order.order_number}</h2>\n  <p><b>Customer:</b> ${esc(customer.name)} (${esc(customer.wa_id)})</p>\n  ${fulfillmentHtml}\n  <p><b>Items:</b><br>${lines.join('<br>')}</p>\n  <p><b>Total:</b> Rs. ${order.total_amount}</p>\n  <p>\n    <a href=\"${statusLink}\"\n       style=\"background:#2e7d32;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;display:inline-block;\">\n      Update Order Status\n    </a>\n  </p>\n  <p style=\"color:#888;font-size:12px;\">Order #${order.order_number}: Preparing → Out for Delivery → Delivered</p>\n`;\n\nreturn [{ json: { ...order, notification_html: html, items_text: lines.join('\\n') } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        16
+      ],
+      "id": "7e44e29e-c325-4694-b64f-de3f88326d3d",
+      "name": "Build Order Notification"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "order_items",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Trim order_id').item.json.order_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        112
+      ],
+      "id": "58c93335-546b-4f6f-bf4b-7fea6d3ef13c",
+      "name": "Get Order Items For Total",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "order_items",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        272,
+        16
+      ],
+      "id": "b2584a74-4fd3-43a3-a89c-6b45beeb0bf9",
+      "name": "Get Order Items For Notification"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "menu_items"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        496,
+        16
+      ],
+      "id": "4d5a4474-aa75-45f0-9cc1-4950768412e9",
+      "name": "Get All Menu Items"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Update Order').item.json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        16
+      ],
+      "id": "3c194c6b-878f-4f10-874f-fef167389fc4",
+      "name": "Get Customer Info"
+    },
+    {
+      "parameters": {
+        "sendTo": "mtahir.data@gmail.com",
+        "subject": "={{ \"🛎️ New Order #\" + $json.order_number + \" (\" + ($json.fulfillment_type || \"?\") + \")\" }}",
+        "message": "={{ $json.notification_html }}",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": []
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        16
+      ],
+      "id": "81c4b465-4b03-44dc-aabf-613684144fab",
+      "name": "Email Owner Notification",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1922ee61-7b47-4514-89c0-3b8a63fd8485",
+              "name": "order_id",
+              "value": "={{ $('Update Order').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "8d3e369d-416c-48cf-8451-70e46b5d7616",
+              "name": "status",
+              "value": "={{ $('Update Order').item.json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "db0a8eb5-250d-4cee-80b6-5728f7713a4e",
+              "name": "total_amount",
+              "value": "={{ $('Update Order').item.json.total_amount }}",
+              "type": "number"
+            },
+            {
+              "id": "93132ba8-db9d-4f6a-84fb-349559ba474a",
+              "name": "order_number",
+              "value": "={{ $('Update Order').item.json.order_number }}",
+              "type": "number"
+            },
+            {
+              "id": "d56c2496-2454-406f-8c99-ff2f53573c39",
+              "name": "items_text",
+              "value": "={{ $('Build Order Notification').first().json.items_text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1392,
+        16
+      ],
+      "id": "7db37588-19af-4ec2-b53e-1e3f6fa14ac7",
+      "name": "Shape Tool Output"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        304
+      ],
+      "id": "3d758a44-fcde-462c-b73a-48e20eabdc5f",
+      "name": "Lookup Order For Status Check",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0151f626-13f0-42d6-bd83-3f13b442fd77",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "Pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1072,
+        304
+      ],
+      "id": "c386864c-8e8d-41c7-b5a1-93b358cf201a",
+      "name": "Is Order Pending?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4f8fc517-e39e-41c7-84db-8af87c6648de",
+              "name": "error",
+              "value": "Order is not open and cannot be finalized",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -848,
+        400
+      ],
+      "id": "9bcd40d8-aa47-4c09-81dd-c9e7365fd009",
+      "name": "Error: Order Not Open"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ad60396f-cc26-4555-9c60-ab3bfe692ecc",
+              "leftValue": "={{ $json.items_total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        112
+      ],
+      "id": "375e6330-8ab1-4517-98f8-9fb2115be8ff",
+      "name": "Has Items?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4f8fc517-e39e-41c7-84db-8af87c6648de",
+              "name": "error",
+              "value": "Order has no items",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        48,
+        208
+      ],
+      "id": "2cc77656-09fb-48be-a9a9-c3ba0eae5ce2",
+      "name": "Error: Empty Order"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "81304953-dc55-48c5-a24b-4da0586a8db2",
+              "leftValue": "={{\n  $json.fulfillment_type === 'Pickup' ||\n  (\n    $json.fulfillment_type === 'Delivery' &&\n    !!(\n      ($json.delivery_address || '').trim() ||\n      (\n        $json.delivery_lat !== undefined &&\n        $json.delivery_lat !== null &&\n        $json.delivery_lat !== '' &&\n        $json.delivery_lng !== undefined &&\n        $json.delivery_lng !== null &&\n        $json.delivery_lng !== ''\n      )\n    )\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -848,
+        208
+      ],
+      "id": "e4a9df6b-60a6-4f5b-9535-56d3e27c1e76",
+      "name": "Delivery Info Set?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "38d59f87-c5a3-43c6-bf33-856b89aaff9e",
+              "name": "error",
+              "value": "Delivery details missing. Ask the customer: Delivery or Pickup? If Delivery, get their address or location pin, call Set Delivery Address, then show the summary and wait for YES before finalizing.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -624,
+        304
+      ],
+      "id": "06942011-290a-404e-8cbb-17bc245ff58f",
+      "name": "Error: Delivery Details Missing"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Trim order_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sum Total": {
+      "main": [
+        [
+          {
+            "node": "Has Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Order": {
+      "main": [
+        [
+          {
+            "node": "Get Order Items For Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trim order_id": {
+      "main": [
+        [
+          {
+            "node": "Lookup Order For Status Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order Notification": {
+      "main": [
+        [
+          {
+            "node": "Email Owner Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Order Items For Total": {
+      "main": [
+        [
+          {
+            "node": "Sum Total",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Order Items For Notification": {
+      "main": [
+        [
+          {
+            "node": "Get All Menu Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Menu Items": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Info": {
+      "main": [
+        [
+          {
+            "node": "Build Order Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Owner Notification": {
+      "main": [
+        [
+          {
+            "node": "Shape Tool Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Order For Status Check": {
+      "main": [
+        [
+          {
+            "node": "Is Order Pending?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Order Pending?": {
+      "main": [
+        [
+          {
+            "node": "Delivery Info Set?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Order Not Open",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Items?": {
+      "main": [
+        [
+          {
+            "node": "Update Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Empty Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delivery Info Set?": {
+      "main": [
+        [
+          {
+            "node": "Get Order Items For Total",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Delivery Details Missing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "7b0abf82-c57d-4ab8-b498-86c0b5620d6e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "r6Vol4SSU3wIaQDh",
+  "tags": []
+}

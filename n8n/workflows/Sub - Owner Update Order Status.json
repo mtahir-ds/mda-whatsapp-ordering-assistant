@@ -1,0 +1,451 @@
+{
+  "name": "Sub - Owner Update Order Status",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "MDA Restaurant — Order Manager",
+        "formDescription": "Manage live orders here.<br><br>Click <b>Show Active Orders</b> to see every order that still needs action. You can then pick an order, set its new status, and the customer is notified on WhatsApp automatically.",
+        "formFields": {
+          "values": []
+        },
+        "options": {
+          "buttonLabel": "Show Active Orders"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -1040,
+        -224
+      ],
+      "id": "0359dbbd-ebc9-4796-afaa-ba11dc5510ee",
+      "name": "On form submission"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        752,
+        -304
+      ],
+      "id": "133dfa64-812e-44dc-bf63-f4b195d197dd",
+      "name": "Get customer wa_id"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_number",
+              "condition": "eq",
+              "keyValue": "={{ $json['Order Number'] }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        304,
+        -208
+      ],
+      "id": "836ebfec-b53e-4000-9c3a-8525ab9f6319",
+      "name": "Lookup Order By Number",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "54b0ad75-1ea3-475d-a3d0-ee3bbb6238d8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        528,
+        -208
+      ],
+      "id": "5a14ffcf-be84-401c-8f83-ad3310c5f9c2",
+      "name": "Order Exists?"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Order Not Found",
+        "completionMessage": "That order could not be found. Open the link again and pick from the list.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        752,
+        -112
+      ],
+      "id": "056333f6-91c7-4a6d-b89f-737c54cf8bd4",
+      "name": "Order Not Found"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_number",
+              "condition": "eq",
+              "keyValue": "={{ $('Order Exists?').item.json.order_number }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $('Parse Selection').item.json['New Status'] }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        976,
+        -304
+      ],
+      "id": "1fd9bed1-3583-4bab-be37-e5b3edd145c8",
+      "name": "Update Order Status"
+    },
+    {
+      "parameters": {
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "={{ $('Get customer wa_id').item.json.wa_id }}",
+        "template": "order_status_update|en",
+        "components": {
+          "component": [
+            {
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "text": "={{ $('Get customer wa_id').item.json.name }}"
+                  },
+                  {
+                    "text": "={{ $('Parse Selection').item.json['New Status'] }}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        -128
+      ],
+      "id": "39e0fadd-8e26-4282-9c2a-909076ccfde3",
+      "name": "Send Status Update (Whatsapp)"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "owner_active_orders",
+        "returnAll": true
+      },
+      "id": "bd616297-8777-4493-970e-0d8046a8d4c6",
+      "name": "Get Active Orders",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -816,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r.label);\nrows.sort((a, b) => Number(a.order_number) - Number(b.order_number));\nconst options = rows.map(r => r.label);\noptions.push('✔ Done — close this page');\nconst statuses = ['Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];\nconst formJson = JSON.stringify([\n  { fieldLabel: 'Select Order', fieldType: 'dropdown', requiredField: true, fieldOptions: { values: options.map(o => ({ option: o })) } },\n  { fieldLabel: 'Set Status To', fieldType: 'dropdown', requiredField: true, fieldOptions: { values: statuses.map(o => ({ option: o })) } }\n]);\nreturn [{ json: { options, count: rows.length, formJson } }];"
+      },
+      "id": "45a99db2-cff5-40ab-a860-5d806d6c0e66",
+      "name": "Build Options",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "defineForm": "json",
+        "jsonOutput": "={{ $('Build Options').last().json.formJson }}",
+        "options": {
+          "formTitle": "Active Orders",
+          "formDescription": "={{ $('Parse Selection').isExecuted ? '<div style=\"background:#e8f8ee;border:1px solid #9be0b4;padding:10px;border-radius:6px;margin-bottom:12px\">✅ <b>Order #' + $('Parse Selection').last().json['Order Number'] + '</b> is now <b>' + $('Parse Selection').last().json['New Status'] + '</b>. The customer was notified on WhatsApp.</div>' : '' }}{{ $('Build Options').last().json.count > 0 ? '<b>' + $('Build Options').last().json.count + ' active order(s).</b><br>1. Select an order (items and total are shown).<br>2. Choose its new status.<br>3. Tap the button. The customer gets a WhatsApp message.<br><br><small>Done updating? Select \"Done — close this page\".</small>' : '<b>No active orders right now.</b><br>Select \"Done — close this page\" to finish.' }}",
+          "buttonLabel": "Update Status & Notify Customer"
+        }
+      },
+      "id": "6d7b6455-bbae-4d07-81d1-d89d0606ab03",
+      "name": "Pick Order",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        -368,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $input.first().json;\nconst label = String(f['Select Order'] || '');\nconst m = label.match(/#(\\d+)/);\nreturn [{ json: { 'Order Number': m ? Number(m[1]) : null, 'New Status': f['Set Status To'], finished: label.startsWith('✔') || !m } }];"
+      },
+      "id": "926589f1-55a2-4569-b8a9-7039670179a9",
+      "name": "Parse Selection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "fin1",
+              "leftValue": "={{ $json.finished }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "id": "6e70d8f5-0075-4643-9757-4329ffec8670",
+      "name": "Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "✅ All done",
+        "completionMessage": "You can close this page. Open the link again anytime to manage new orders.",
+        "options": {}
+      },
+      "id": "ae8791fc-9cd9-4b9e-b000-cf9af2df2c63",
+      "name": "All Done",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        304,
+        -400
+      ]
+    }
+  ],
+  "connections": {
+    "Get customer wa_id": {
+      "main": [
+        [
+          {
+            "node": "Update Order Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Order By Number": {
+      "main": [
+        [
+          {
+            "node": "Order Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Exists?": {
+      "main": [
+        [
+          {
+            "node": "Get customer wa_id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Order Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Order Status": {
+      "main": [
+        [
+          {
+            "node": "Send Status Update (Whatsapp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Get Active Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Orders": {
+      "main": [
+        [
+          {
+            "node": "Build Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Options": {
+      "main": [
+        [
+          {
+            "node": "Pick Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Order": {
+      "main": [
+        [
+          {
+            "node": "Parse Selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Selection": {
+      "main": [
+        [
+          {
+            "node": "Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finished?": {
+      "main": [
+        [
+          {
+            "node": "All Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Order By Number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Status Update (Whatsapp)": {
+      "main": [
+        [
+          {
+            "node": "Get Active Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "008d9acb-81a0-4368-a663-0aa9a7f0381a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "SzjrOiwfBy735pbX",
+  "tags": []
+}

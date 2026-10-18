@@ -1,0 +1,208 @@
+{
+  "name": "Sub - Auto - Refresh Menu Image",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "menu-image-refresh",
+        "options": {}
+      },
+      "id": "8b8d1f80-4d83-424a-bab7-4155e95730d4",
+      "name": "Menu Changed Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.headers[\"x-webhook-secret\"] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "REDACTED_SECRET",
+              "id": "ae13918b-f41b-4e72-bb80-59d9a7dd3ec7"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "97195b98-1dc8-47b9-9009-da70faec8160",
+      "name": "Valid Secret?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "id": "4eacab8e-e5a2-4988-a5d4-01b2bc2fae2f",
+      "name": "Wait For More Changes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        0
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://djzacdjzcejecchexzjz.supabase.co/rest/v1/menu_change_log?select=id&order=id.desc&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "ae32d1ae-5cf8-4f8e-97e8-30d25b27816e",
+      "name": "Get Latest Change",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "rightValue": "={{ $(\"Menu Changed Webhook\").item.json.body.record_id }}",
+              "id": "fe4a1ecf-b2c5-49f5-830a-0d856010039d"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5aa621b5-b54e-49ae-b360-9840a17d4c4c",
+      "name": "Is Latest Change?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://djzacdjzcejecchexzjz.supabase.co/functions/v1/generate-menu-image",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "661dee3b-8af8-4754-a184-553778deb6d2",
+      "name": "Generate Menu Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1120,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Menu Changed Webhook": {
+      "main": [
+        [
+          {
+            "node": "Valid Secret?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Secret?": {
+      "main": [
+        [
+          {
+            "node": "Wait For More Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For More Changes": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Change": {
+      "main": [
+        [
+          {
+            "node": "Is Latest Change?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Latest Change?": {
+      "main": [
+        [
+          {
+            "node": "Generate Menu Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "errorWorkflow": "PTUD8O1tOCGWR70O"
+  },
+  "versionId": "8751e5de-c695-4d36-9559-5d52931d2aed",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "Fwk8BwOUomQJmjut",
+  "tags": []
+}

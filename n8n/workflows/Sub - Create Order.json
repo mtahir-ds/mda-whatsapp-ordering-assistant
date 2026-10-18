@@ -1,0 +1,83 @@
+{
+  "name": "Sub - Create Order",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "customer_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -272,
+        -80
+      ],
+      "id": "a52cf0cb-11a0-4b60-b7c7-49baf2c77efb",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "tableId": "orders",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "Pending"
+            },
+            {
+              "fieldId": "total_amount",
+              "fieldValue": "0"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        -80
+      ],
+      "id": "19bdf63d-a33f-4dde-8295-55d0dc9aec49",
+      "name": "Insert Pending Order"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Insert Pending Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "24193976-b7ec-4db1-a8dd-c994c374b993",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "ojetmkZlu29UsYxH",
+  "tags": []
+}

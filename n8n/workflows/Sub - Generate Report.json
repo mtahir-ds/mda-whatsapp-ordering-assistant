@@ -1,0 +1,385 @@
+{
+  "name": "Sub - Generate Report",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const period = $json.period;\nconst tz = 'Asia/Karachi';\nconst now = DateTime.now().setZone(tz);\nlet start, end;\nif (period === 'daily')   { start = now.startOf('day');  end = now; }\nif (period === 'weekly')  { end = now.startOf('week');   start = end.minus({ weeks: 1 }); }\nif (period === 'monthly') { end = now.startOf('month');  start = end.minus({ months: 1 }); }\nconst labels = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };\nconst range_label = period === 'daily'\n  ? start.toFormat('dd LLL yyyy')\n  : `${start.toFormat('dd LLL')} – ${end.minus({ days: 1 }).toFormat('dd LLL yyyy')}`;\nreturn [{ json: { period, period_label: labels[period], range_label,\n  start_date: start.toUTC().toISO(), end_date: end.toUTC().toISO() } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        304
+      ],
+      "id": "1dd92a62-d868-429e-96f0-518274b42c32",
+      "name": "Calculate Date Range"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dedupe = a => { const s = new Set(); return a.filter(x => !s.has(x.id) && s.add(x.id)); };\nconst cfg = $('Calculate Date Range').first().json;\nconst all = dedupe($('Get Orders In Range').all().map(o => o.json)).filter(o => o.id);\nconst orders = all.filter(o => ['Confirmed','Preparing','Out for Delivery','Delivered'].includes(o.status));\nconst cancelled = all.filter(o => o.status === 'Cancelled').length;\nconst ids = new Set(orders.map(o => o.id));\nconst items = dedupe($('Get All Order Items').all().map(i => i.json)).filter(i => ids.has(i.order_id));\nconst menu = dedupe($('Get All Menu Items').all().map(m => m.json));\n\nconst count = orders.length;\nconst total = orders.reduce((s, o) => s + Number(o.total_amount), 0);\nconst fees = orders.reduce((s, o) => s + Number(o.delivery_fee || 0), 0);\nconst avg = count ? (total / count).toFixed(2) : '0.00';\nconst deliveries = orders.filter(o => o.fulfillment_type === 'Delivery').length;\nconst pickups = orders.filter(o => o.fulfillment_type === 'Pickup').length;\n\nconst t = {};\nitems.forEach(i => { const k = i.menu_item_id; t[k] = t[k] || { qty: 0, rev: 0 };\n  t[k].qty += Number(i.quantity); t[k].rev += Number(i.line_total); });\nconst top = Object.entries(t).sort((a, b) => b[1].qty - a[1].qty || b[1].rev - a[1].rev)\n  .slice(0, 5).map(([id, v]) => { const m = menu.find(x => x.id === id);\n    return `${m ? m.name : 'Unknown'} — ${v.qty} sold (Rs. ${v.rev})`; });\n\nconst html = `\n  <h2>📊 ${cfg.period_label} Report — MDA Restaurant</h2>\n  <p style=\"color:#888\">${cfg.range_label}</p>\n  <p><b>Orders:</b> ${count} (${deliveries} delivery, ${pickups} pickup) &nbsp; <b>Cancelled:</b> ${cancelled}</p>\n  <p><b>Total revenue:</b> Rs. ${total} &nbsp;(food Rs. ${total - fees} + delivery fees Rs. ${fees})</p>\n  <p><b>Avg order value:</b> Rs. ${avg}</p>\n  <p><b>Top items:</b><br>${top.join('<br>') || 'No sales in this period'}</p>`;\nreturn [{ json: { html, period_label: cfg.period_label } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        304
+      ],
+      "id": "9a01df1b-8dd9-4d43-82d9-bb2f606e7db5",
+      "name": "Build Report"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 23,
+              "triggerAtMinute": 55
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        112
+      ],
+      "id": "805fa343-c715-4524-8442-3d1a966ee3dc",
+      "name": "Trigger: Daily"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        304
+      ],
+      "id": "46485c12-86a0-4e75-942e-b94994bd6d7f",
+      "name": "Trigger: Weekly"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        496
+      ],
+      "id": "a5730bd8-9f56-49b8-9f16-3f6bce899016",
+      "name": "Trigger: Monthly"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8644cb1-2fd8-46dd-acb9-56eda007c437",
+              "name": "period",
+              "value": "daily",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        64,
+        112
+      ],
+      "id": "b1b8545b-1194-4238-9cd4-90b0a83522e9",
+      "name": "Set Period: Daily"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0c18e4f7-825d-4769-a359-d881ac638b48",
+              "name": "period",
+              "value": "weekly",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        64,
+        304
+      ],
+      "id": "d7a37161-adb3-48e0-b92a-3577809711a5",
+      "name": "Set Period: Weekly"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "968fdf1c-1ce7-455a-8ca1-3623da2779ae",
+              "name": "period",
+              "value": "monthly",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        64,
+        496
+      ],
+      "id": "1a61b3f8-2861-411f-bf3b-e794b84c427b",
+      "name": "Set Period: Monthly"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "created_at",
+              "condition": "gte",
+              "keyValue": "={{ $json.start_date }}"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "lt",
+              "keyValue": "={{ $json.end_date }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        512,
+        304
+      ],
+      "id": "b5859720-8ff7-4c48-9923-bb4d8aa649ac",
+      "name": "Get Orders In Range",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "order_items",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        736,
+        304
+      ],
+      "id": "2ce735ce-630c-4c23-806e-cff580f620be",
+      "name": "Get All Order Items",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        960,
+        304
+      ],
+      "id": "b120cecd-68c6-4eef-8a43-71c881108f2a",
+      "name": "Get All Menu Items"
+    },
+    {
+      "parameters": {
+        "sendTo": "mtahir.data@gmail.com",
+        "subject": "={{ $json.period_label }} Report — MDA Restaurant",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1408,
+        304
+      ],
+      "id": "6b9b867f-4b8f-474b-bfa0-d71c89e15114",
+      "name": "Email Report To Owner"
+    }
+  ],
+  "connections": {
+    "Calculate Date Range": {
+      "main": [
+        [
+          {
+            "node": "Get Orders In Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report": {
+      "main": [
+        [
+          {
+            "node": "Email Report To Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Daily": {
+      "main": [
+        [
+          {
+            "node": "Set Period: Daily",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Weekly": {
+      "main": [
+        [
+          {
+            "node": "Set Period: Weekly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Monthly": {
+      "main": [
+        [
+          {
+            "node": "Set Period: Monthly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Period: Daily": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Period: Weekly": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Period: Monthly": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Orders In Range": {
+      "main": [
+        [
+          {
+            "node": "Get All Order Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Order Items": {
+      "main": [
+        [
+          {
+            "node": "Get All Menu Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Menu Items": {
+      "main": [
+        [
+          {
+            "node": "Build Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "572fdc35-fcee-4b33-be4c-43d87b78e428",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "fVfJHIZUxu5NQMPe",
+  "tags": []
+}

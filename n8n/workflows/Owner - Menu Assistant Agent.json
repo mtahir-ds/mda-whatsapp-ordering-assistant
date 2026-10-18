@@ -1,0 +1,854 @@
+{
+  "name": "Owner - Menu Assistant Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message"
+            },
+            {
+              "name": "owner_id"
+            }
+          ]
+        }
+      },
+      "id": "7edb2a22-8a72-49c3-96a8-80241b9fbf83",
+      "name": "Receive Owner Message",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "=# Role\nYou are the menu assistant for the owner of MDA Restaurant (Karachi). You change the live menu in the database when the owner asks. You only talk to the owner. Replies are short WhatsApp messages. Use *single stars* for bold, never double stars.\n\n# What you can do\n- Change an item's price\n- Mark an item available or unavailable\n- Make an item LIMITED with a daily quantity (Set Limited Stock), change that quantity, or make it a NORMAL item again (Make Item Normal)\n- Add a new menu item\n- Move an item to another menu category (Set Category)\n- Remove an item from the menu\n- Create a DEAL (combo of items at a fixed price), change a deal's price, or end a deal\n- Show the current menu with prices, availability, stock and deals\nAnything else (order status, reports, cancelling orders): say it is not handled here. For active orders the owner types *orders*.\n\n# THE GOLDEN RULE: two approvals, never skipped\nA change tool may be called ONLY when BOTH are true:\n(a) YOUR previous message in this chat already stated the exact change and ended with \"Reply *YES* to proceed\", AND\n(b) the owner's latest message is a clear yes (yes, yeah, haan, ji, confirm, ok) to THAT change.\nThe owner giving you a price, quantity, name or any detail is NOT a yes. After receiving details you must send the confirmation message and STOP. Calling a change tool right after the owner gave a value is forbidden, even if the request looks complete and obvious.\nIf your previous message was not a confirmation of this exact change, send the confirmation first.\n\n# Flow for every change\n1. Call List Menu Items first, every time, to find the exact item and its current values. Never use remembered data.\n2. If the owner's words match more than one item (burger, biryani, fries...), ask which one. Never guess.\n3. If the item is not found, say so and show the closest names.\n4. If a detail is missing (price, quantity, name, limited or normal), ask for it. Then go to step 5.\n5. CHAT CONFIRMATION: state the exact change with before and after, for example:\n   Zinger Burger price: Rs. 650 -> Rs. 700\n   Reply *YES* to proceed.\n   Then STOP and wait. No change tool in this turn.\n6. Only after a clear yes to that confirmation, call the matching change tool once. This sends a second approval (Approve / Disapprove) to the owner's phone, and the tool only runs if they approve.\n7. After the tool result:\n   - Success: confirm what changed with the new value, and say it is live for customers.\n   - Declined, rejected or no result: say the change was NOT applied. Never claim success.\n8. If the owner changes their mind or asks something different instead of YES, drop the pending change.\n\n# Validation rules\n- Price must be a positive number in Rs. If it changes by more than 50% up or down from the current price, point it out in the confirmation message and ask them to double check.\n- Stock: \"make X limited\" or \"X stock 40\" -> use Set Limited Stock with the quantity (it always marks the item limited; customers see \"only N left\" and the count goes down with orders). \"Make X normal / unlimited\" -> use Make Item Normal. If the owner only gives a quantity for a normal item, ask whether they want it limited with that daily quantity. Always say limited or normal in the confirmation.\n- Adding an item: do not add a name that already exists. Ask for name and price if missing. ALWAYS ask \"Is it a normal item, or limited with a daily quantity? If limited, how many?\" before the confirmation, unless the owner already said. Normal item: is_limited false, stock 50. Limited item: is_limited true with their quantity. Also decide the CATEGORY (see Categories) and say it in the confirmation. Say which one it is (normal or limited) in the confirmation.\n- Removing an item archives it: it disappears from the customer menu but past orders keep their history. Say this in the confirmation.\n- Change one item per tool call. For several items, confirm and apply them one by one.\n- Never show ids or technical errors. If a tool fails, say the change was not applied and ask them to try again.\n\n# Categories\nEvery regular item sits in a menu category, shown as a heading in the menu image and the WhatsApp menu. Deals have no category. Categories in use are the distinct values in the category field from List Menu Items; the usual ones are Burgers, Rolls & Sandwiches, Fries & Snacks, Karahi & Handi, Biryani & Rice, Bread & Sides, Drinks.\n- When adding an item, if the category is obvious from the name, propose it in the confirmation (e.g. \"Category: Burgers\"). If it is not obvious, ask the owner which category. Reuse an existing category name EXACTLY as spelled; only create a new category if the owner asks for it.\n- \"Move X to Drinks\" / \"put X under Burgers\" -> confirm \"X category: Rolls & Sandwiches -> Burgers\", then after a clear yes call Set Category. A category with no items disappears from the menu automatically.\n- Never use Set Category on a deal row.\n\n# Deals\nA deal is a combo of existing menu items sold at one fixed price, numbered automatically (Deal 1, Deal 2...). In List Menu Items a deal has is_deal true and a deal_description listing what is inside. Deals are always shown to customers at the top of the menu.\n- CREATE: collect a short name, the items with quantities (use exact names from List Menu Items; if a name could match several items, ask which one), the fixed price, and an optional last valid day (convert words like \"till Sunday\" to a date; today is given below). Work out the regular price by adding up each item's current price times quantity. The deal price must be LOWER than that total, so tell the owner the regular price and the saving. Send the chat confirmation like:\n  New deal: Family Feast\n  2x Zinger Burger + 1x Cold Drink (Can)\n  Regular price Rs. 1,450 -> Deal price Rs. 1,200 (customer saves Rs. 250)\n  Valid until: 20 Oct 2026 (or: no end date)\n  Reply *YES* to proceed.\n  After a clear yes, call Add Deal once. On success say which Deal number it got and that it is live. If Add Deal reports a problem, explain it plainly and offer to fix it.\n- A deal's availability and stock follow its items automatically: it shows as sold out when any item in it is unavailable or out of stock, and ordering a deal reduces the stock of its limited items. Never use Set Limited Stock, Make Item Normal or Set Availability on a deal row.\n- CHANGE PRICE: use Update Price on the deal row, keeping it below the regular price of its items.\n- END A DEAL: use Remove Menu Item on the deal row (it disappears from the customer menu, past orders keep their history). Say this in the confirmation.\n- To change what is inside a deal, end it and create a new one.\n- When showing the menu, list deals first with their contents, then the items grouped by category.\n\n# Context\nToday (Karachi): {{ $now.setZone('Asia/Karachi').toFormat('cccc dd LLL yyyy') }}"
+        }
+      },
+      "id": "87b61908-adbc-4104-8314-e4b47065f476",
+      "name": "Menu Management Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1056,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Receive Owner Message').item.json.owner_id }}",
+        "contextWindowLength": 10
+      },
+      "id": "00bf754e-da66-4ff0-a58f-fd857125ab0e",
+      "name": "Owner Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        336,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Lists ALL menu items including unavailable ones (not archived). Returns id, name, price, category, stock_qty, is_available, is_limited. Always call this first to find the exact item and its id before proposing any change. The existing category names are the ones already used by items.",
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "returnAll": true,
+        "orderBy": "name",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_archived",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "4f4f93cb-1c7a-4e08-89d4-3c8a1f2aa1ae",
+      "name": "List Menu Items",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        496,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the exact change, e.g. \"Zinger Burger: Rs 650 -> Rs 700\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "015d87a7-9d88-4037-bff0-3257f7a9367d",
+      "name": "Approve Price Change",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        624,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Changes the price of one menu item. Only call after the owner said YES in chat.",
+        "operation": "update",
+        "tableId": "menu_items",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('item_id', 'UUID of the menu item from List Menu Items') }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "price",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('new_price', 'New price in Rs, positive number', 'number') }}"
+            }
+          ]
+        }
+      },
+      "id": "e9b8e52c-6b25-4dad-9490-e913635bd560",
+      "name": "Update Price",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        704,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ $fromAI('Message', `One short line describing the exact change, e.g. \"Cold Drink: mark UNAVAILABLE\"`, 'string') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d3e8b727-8fa7-4c72-9c46-1615f0b3a54d",
+      "name": "Approve Availability Change",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Marks one menu item available (true) or unavailable (false). Only call after the owner said YES in chat.",
+        "operation": "update",
+        "tableId": "menu_items",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('item_id', 'UUID of the menu item from List Menu Items') }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "is_available",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('is_available', 'true to make available, false to make unavailable', 'boolean') }}"
+            }
+          ]
+        }
+      },
+      "id": "6e523747-e126-475b-87a0-e53cafce8b0f",
+      "name": "Set Availability",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        992,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the exact change, e.g. \"Chef Special Biryani: stock 8 -> 20\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "05fc0b6a-fcbf-4e97-a46b-d49daa1dd845",
+      "name": "Approve Stock Change",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Makes one item LIMITED with a daily quantity (sets is_limited to true and stock_qty). Use for 'make X limited', or changing the quantity of an already limited item. Only call after the owner said YES in chat.",
+        "operation": "update",
+        "tableId": "menu_items",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('item_id', 'UUID of the menu item from List Menu Items') }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock_qty",
+              "fieldValue": "={{ $fromAI('new_stock_qty', 'Daily limited quantity, whole number 0 or more', 'number') }}"
+            },
+            {
+              "fieldId": "is_limited",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "3302fd9d-e761-4239-adb6-df88a3e7f32e",
+      "name": "Set Limited Stock",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the new item, e.g. \"ADD: Club Sandwich at Rs 450\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "7ba32d5d-6117-4775-b997-3658822aa280",
+      "name": "Approve New Item",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Adds a NEW menu item. Only call after confirming the name does not already exist in List Menu Items and the owner said YES in chat.",
+        "tableId": "menu_items",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('item_name', 'Name of the new menu item') }}"
+            },
+            {
+              "fieldId": "price",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('item_price', 'Price in Rs, positive number', 'number') }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $fromAI('item_category', 'Menu category for the item. Reuse an existing category name exactly as in List Menu Items (e.g. Burgers, Rolls & Sandwiches, Fries & Snacks, Karahi & Handi, Biryani & Rice, Bread & Sides, Drinks) or a new name the owner chose', 'string') }}"
+            },
+            {
+              "fieldId": "is_available",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "is_limited",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('is_limited', 'true only if the owner wants a limited daily quantity, otherwise false', 'boolean') }}"
+            },
+            {
+              "fieldId": "stock_qty",
+              "fieldValue": "={{ $fromAI('item_stock_qty', 'Stock quantity. Use 50 for a normal (not limited) item. Only use a smaller number if the owner said the item is limited with that daily quantity. Never 0 for a new item', 'number') }}"
+            }
+          ]
+        }
+      },
+      "id": "c6f4860d-acd7-4629-809a-81ed9c5b7d77",
+      "name": "Add Menu Item",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('approval_summary', 'One short line describing the removal, e.g. \"REMOVE from menu: Fries\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d0143eee-6eee-4caf-aede-c90da5780967",
+      "name": "Approve Item Removal",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Removes one menu item from the menu (archives it; past orders keep their history). Only call after the owner said YES in chat.",
+        "operation": "update",
+        "tableId": "menu_items",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('item_id', 'UUID of the menu item from List Menu Items') }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "is_archived",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "is_available",
+              "fieldValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "2135bb8d-7645-4184-a4a8-65e7a4bf98bc",
+      "name": "Remove Menu Item",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        1856,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "reply",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4143bcb5-fcc8-419f-810c-2301a3ae9e14",
+      "name": "Return Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2704,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "cachedResultName": "gpt-4o",
+          "mode": "list",
+          "value": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        448
+      ],
+      "id": "5b885943-c884-434a-8cb5-abe323a57088",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "message": "={{ $fromAI('approval_summary', 'One short line, e.g. \"Cold Drink (Can): make NORMAL item (no stock limit)\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9fc50e76-2964-4ccb-b493-b6207cff091c",
+      "name": "Approve Make Normal",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        2064,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Makes one item a NORMAL item with no daily limit (is_limited false, stock 50). Only call after the owner said YES in chat.",
+        "operation": "update",
+        "tableId": "menu_items",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $fromAI('item_id', 'UUID of the menu item from List Menu Items') }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "is_limited",
+              "fieldValue": "false"
+            },
+            {
+              "fieldId": "stock_qty",
+              "fieldValue": "50"
+            }
+          ]
+        }
+      },
+      "id": "5db56098-4cc1-4d56-b52d-397e6351f2e8",
+      "name": "Make Item Normal",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        2144,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Creates a new DEAL (combo of existing menu items at one fixed price). Only call after the owner said YES in chat. Returns ok true with the deal name and saving, or ok false with an error to explain to the owner.",
+        "method": "POST",
+        "url": "https://djzacdjzcejecchexzjz.supabase.co/rest/v1/rpc/create_deal",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_name: $fromAI('deal_name', 'Short deal name without the Deal number, e.g. Family Feast', 'string'), p_price: $fromAI('deal_price', 'Fixed deal price in Rs, positive number', 'number'), p_items: $fromAI('deal_items', 'JSON text of the items in the deal using exact menu names, for example [{\"name\":\"Zinger Burger\",\"quantity\":2},{\"name\":\"Cold Drink (Can)\",\"quantity\":1}]', 'string'), p_valid_until: $fromAI('last_valid_date', 'Last day the deal is valid as YYYY-MM-DD, or an empty string if it has no end date', 'string') || null }) }}",
+        "options": {}
+      },
+      "id": "a82daffb-eac8-480c-8c45-1e6404a75af1",
+      "name": "Add Deal",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        2432,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ $fromAI('approval_summary', 'One short line, e.g. \"NEW DEAL: Family Feast, 2x Zinger Burger + 1x Cold Drink at Rs 1500\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e4a20dc5-8e55-4bdf-b68c-f135984a8863",
+      "name": "Approve New Deal",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        2352,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{ $fromAI('approval_summary', 'One short line, e.g. \"Club Sandwich: category Rolls & Sandwiches -> Burgers\"') }}",
+        "phoneNumberId": "=1240452379159211",
+        "recipientPhoneNumber": "92XXXXXXXXXX",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "✗ Disapprove"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "6ccac386-958c-4f54-9038-eac0c051d9aa",
+      "name": "Approve Category Change",
+      "type": "n8n-nodes-base.whatsAppHitlTool",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Moves one menu item to a menu category (sets its category). Only call after the owner said YES in chat. Never use on a deal row.",
+        "operation": "update",
+        "tableId": "menu_items",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $fromAI('item_id', 'UUID of the menu item from List Menu Items') }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $fromAI('new_category', 'Category name, reuse an existing one exactly or a new name the owner chose', 'string') }}"
+            }
+          ]
+        }
+      },
+      "id": "e207a2ab-0453-47ca-bebe-28b13c2c6ef9",
+      "name": "Set Category",
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        2720,
+        656
+      ]
+    }
+  ],
+  "connections": {
+    "Receive Owner Message": {
+      "main": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Menu Management Agent": {
+      "main": [
+        [
+          {
+            "node": "Return Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Owner Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Menu Items": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Price Change": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Price": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve Price Change",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Availability Change": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Availability": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve Availability Change",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Stock Change": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve New Item": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Menu Item": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve New Item",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Item Removal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Menu Item": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve Item Removal",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Limited Stock": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve Stock Change",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Item Normal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve Make Normal",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Make Normal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Deal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve New Deal",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve New Deal": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Category": {
+      "ai_tool": [
+        [
+          {
+            "node": "Approve Category Change",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Category Change": {
+      "ai_tool": [
+        [
+          {
+            "node": "Menu Management Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "d7534049-180e-4d29-be6d-b6f44e82e1ef",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "NV9pyIVu4AUZjuwj",
+  "tags": []
+}

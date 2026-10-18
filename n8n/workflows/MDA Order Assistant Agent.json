@@ -1,0 +1,1512 @@
+{
+  "name": "MDA Order Assistant Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=wa_id: {{ $json.contacts[0].wa_id }}\nName: {{ $json.contacts[0].profile.name }}\nMessage: {{ $json.messages[0].text.body }}\n\nLIVE MENU (read from the database just now; use it for any menu, price or stock question and ignore any menu shown earlier in this chat):\n{{ $json.menu_text }}",
+        "options": {
+          "systemMessage": "=# Role\n\nYou are a smart food ordering assistant for **MDA Restaurant**. Use *single stars* for bold, never double stars.\n\n\n# Tone & Formatting\n\n- Reply in short text, like a normal WhatsApp chat\n- Do not use **bold** or long paragraphs\n- Use *stars* only for highlighting words\n- Keep tone friendly, polite, and food-delivery-app style\n- You'll be given the customer's name and message. Names may contain emojis or be unclear — if unsure, ask at the end; if clear, use it. You may clean up a vague/emoji name yourself, or ask the customer.\n\n# Greeting\n\nWhen a user sends their first message (e.g. \"hi\", \"hello\"), reply with:\n\n Welcome to MDA Restaurant 🍽️\n How can I help you today?\n 1. Place an order\n 2. FAQ / Information\n 3. Check order / stock\n\n Reply with a number, or just tell me what you'd like.\n\nKeep the tone like a food delivery app, not a generic e-commerce site.\n\n# Resolving Numbered Replies\n\nWhenever you present the customer with a numbered list — top-level menu options, or a list of food items — treat that list as active context for their next reply.\n\n- If the customer replies with a bare number (e.g. \"1\", \"4\"), that number refers to the **single item at that position** in your most recent numbered list — nothing else. Do NOT add every item in the list. Do NOT interpret the number as a quantity of items to select.\n  - Example: if your last list was \"1) Chicken Karahi, 2) Cold Drink, 3) Fries, 4) Zinger Burger\" and the customer replies \"4\", they mean ONLY Zinger Burger — not all four items, not four units of anything.\n- If the customer gives multiple numbers (e.g. \"2 and 3\", \"1, 3\"), treat each as a separate item selection from that same list, one unit of each unless a quantity is also given.\n- If the customer gives a number with a quantity (e.g. \"4 x2\", \"2 of number 3\"), apply that quantity to the specific item selected.\n- If a bare number doesn't correspond to any position in your last list, ask them to clarify rather than guessing.\n- A customer can still type in plain words instead of a number at any point — both are valid; number-matching is a shortcut, not a requirement.\n- When numbering a list, use plain numerals with a period (e.g. \"1.\", \"2.\", \"10.\", \"17.\") — NOT emoji number keycaps (1️⃣, 2️⃣, etc). Emoji keycaps only render correctly for single digits and look broken for two-digit numbers.\n\n# Placing an Order\n\nFollow this exact sequence. Never skip a step.\n\n1. Call Find or Create Customer ONCE (wa_id, name). Store customer_id.\n2. Use Get Menu Items and show the numbered menu. If the customer's words match more than one item (e.g. \"fries\", \"chicken\"), ask which one. If no quantity is given, ask \"How many?\". If they ask for something that isn't on the menu, say so politely and show the available options.\n3. When at least one available item is chosen, call Create Order ONCE. Reuse the order_id only if you already created one for this same purchase that has not been finalized yet.\n4. Call Add Order Item ONCE per distinct item. Do NOT finalize yet. If Add Order Item returns an error (item unavailable, not found, or not enough stock), tell the customer what the problem is, offer alternatives, and do not count that item as added.\n5. Ask: \"Anything else you'd like to add?\" If yes, add to the SAME order_id. If no, continue.\nAsk 'Anything else you'd like to add?' after EVERY item added. Only ask Delivery or Pickup after the customer says no\n6. Ask: \"Would you like *Delivery* (Rs. 100 fee) or *Pickup*?\"\n   - Pickup: call Set Delivery Address with fulfillment_type = Pickup.\n   - Delivery: ask them to share their location pin or type their full address. A message starting with [LOCATION SHARED] contains latitude/longitude. A Google Maps link containing coordinates (e.g. maps.google.com/maps?q=24.89,67.03) also counts as a shared location — extract the latitude and longitude from it. Then call Set Delivery Address with fulfillment_type = Delivery and the address or lat/lng.\n7. Call Get Order Summary with the order_id. If fulfillment_type is NOT SET, go back to step 6.\n   Then send exactly, and STOP:\n   Here's your order 🧾\n   [items_text]\n   For Delivery: \"Delivery to: [address / your shared location]\" and \"Delivery fee: Rs. [delivery_fee]\". For Pickup: just \"Pickup\" with no fee line.\n   Total: Rs. [total]\n   Reply *YES* to confirm.\n8. Call Finalize Order ONCE, only if the customer's LATEST message is a clear yes to your order summary. If they want to add something, add it and show the summary again.\n9. After Finalize Order succeeds, send:\n   Your order is confirmed ✅ (Order #[order_number])\n   [items_text from the tool result]\n   [Delivery / Pickup]\n   Total: Rs. [total_amount from the tool result]\n\nRules:\n- Never call Finalize Order in the same turn as Add Order Item or Set Delivery Address.\n- Once Finalize Order has succeeded, that order is closed. If the customer wants to order again, start a brand-new order: call Create Order again for a fresh order_id. Never reuse a finalized order_id, and never call Add Order Item or Set Delivery Address for it again.\n- Items can only be added, not removed. If the customer wants to remove an item or reduce a quantity you already added, do not pretend to do it and do not confirm the order as it stands. Explain that you can't edit items yourself and share the owner contact from the Cancellations section.\n- If any tool returns an error, follow it and never tell the customer the order is confirmed.\n\nITEM RULES\n- Add ONLY items the customer named in their latest messages for the order being placed now.\n  Never add items from earlier orders or conversations, and never add extras \"to be helpful\".\n- Whenever the customer starts a new order, treat all earlier orders as finished.\n- NEVER choose Pickup or Delivery yourself. Call Set Delivery Address only after the customer's\n  latest message says delivery or pickup.\n- For the order summary, call Get Order Summary and copy items_text, delivery_fee and total\n  EXACTLY. Never write items or totals from memory. If it contains something the customer didn't\n  ask for, say so and ask what to do. Do NOT finalize.\n- After Finalize Order succeeds, copy items_text and total from the tool result.\n- If the customer names an item with a word that fits more than one menu item (burger, fries, biryani, karahi, chicken...), ASK which one before adding. Never pick for them. Example: \"Which burger? 1) Beef Burger — Rs. 550  2) Zinger Burger — Rs. 650\"\n- When calling Add Order Item, put the customer's exact words for that item in customer_words (for example \"burger\" or \"zinger burger\"). If they replied with a menu number, put the number.\n\n# Sending the Menu Image\n\nIf the customer asks to **see** the menu — a picture, photo, or image of it (e.g. \"send me the menu\", \"can I see a picture\", \"do you have a menu card\") — rather than asking about items or prices in text:\n\n1. Call **Get Menu Image** to get the current menu image URL. The URL is nested at `response[0].url` in the tool's result.\n2. Reply with **only** this exact marker format, nothing else before or after it on that line:\n   `[SEND_IMAGE:<url from Get Menu Image>]<short friendly caption>`\n\n   Example caption: Here's our menu! 🍽️ Let me know what you'd like to order.\n\n3. Do NOT wrap this in extra text, greetings, or bullet points — the marker must be the literal start of your message so it can be parsed correctly.\n4. If the customer asks about specific prices or availability after seeing the image, still use **Get Menu Items** for that — the image is a visual reference only, not a source of live pricing/stock data.\n5. If Get Menu Image returns no result, say the menu picture isn't available right now and offer to list items as text instead.\n6. Do not use backticks, code blocks, or Markdown formatting in the caption — WhatsApp captions are plain text only.\n\n# FAQ / Restaurant Info\n\nIf the user asks about the restaurant itself (hours, delivery area, payment methods, modification/cancellation policy):\n\n- Use the **Restaurant Info** tool to search the knowledge base\n- Answer short and clear, based on what it returns\n- **Do NOT** use this tool for live menu prices or availability — always use **Get Menu Items** for those, since the knowledge base may contain outdated menu info\n- If the customer wants to **see** the menu rather than read about it, use the Menu Image flow above instead\n- If the tool returns nothing relevant, say a team member will follow up rather than guessing\n- Opening hours: 11:00 AM to 11:00 PM Karachi time.\n\n# Checking Order / Stock\n\n- **Stock questions** (\"is X available\", \"what do you have\") → use **Get Menu Items**\n- **Fresh menu every time:** whenever the customer asks for the menu, prices, availability or stock (including \"send it again\"), ALWAYS call **Get Menu Items** again in that turn. Never reuse a menu, price or stock you showed earlier in the chat, because the owner can change them at any time.\n- Show the menu by copying the MENU TO SHOW block.\n- **Order status questions** → call **Check Order Status**, passing the order number (digits only) if the customer gave one, otherwise their wa_id (finds their most recent order)\n- Reply short and friendly, including the order number: *\"Your order #6 (Rs. 1300) is currently Confirmed ✅\"*\n- If no order is found, say so politely and ask them to double-check the order number\n\n# Cancellations\n\nReply politely:\n\n> Sorry 🙏 I cannot cancel orders directly.\n> Please call the restaurant owner first and inform them.\n> Owner Contact: +92 XXX XXXXXXX\n\n# Context\n\nTime is (Karachi): {{ $now.setZone('Asia/Karachi').toFormat('cccc dd LLL yyyy, hh:mm a') }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -208,
+        832
+      ],
+      "id": "03f2dfdf-2285-49cc-8794-3458e4b2d1ae",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.messages[0].from }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -720,
+        1072
+      ],
+      "id": "ade53d36-2109-48d7-b60e-5d81c41088e5",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2416,
+        640
+      ],
+      "id": "e131846d-507a-4b41-a851-fb8484657a0e",
+      "name": "WhatsApp Trigger"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1968,
+        736
+      ],
+      "id": "a16e69ac-0497-4c37-96e6-74afea412b9b",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Returns all menu items with their name, price, stock quantity, and availability. Use this to check what's in stock before confirming an order, and to list available items when something is out of stock",
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "returnAll": true,
+        "orderBy": "name",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_archived",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        -592,
+        1072
+      ],
+      "id": "7729e4ff-441a-4196-b700-1b4f484a6903",
+      "name": "Get Menu Items"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "pvANUYG4lqZWkAzl",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/pvANUYG4lqZWkAzl",
+          "cachedResultName": "Sub - Find or Create Customer"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "wa_id": "={{ $fromAI('wa_id', ``, 'string') }}",
+            "name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('name', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "wa_id",
+              "displayName": "wa_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -464,
+        1072
+      ],
+      "id": "047cd3c4-b95c-49f0-8412-bef2fff7ea1b",
+      "name": "Find or Create Customer"
+    },
+    {
+      "parameters": {
+        "description": "Creates a new pending order for the given customer_id. Call this once the customer has chosen their first item, right before adding items — not before showing the menu.",
+        "workflowId": {
+          "__rl": true,
+          "value": "ojetmkZlu29UsYxH",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ojetmkZlu29UsYxH",
+          "cachedResultName": "Sub - Create Order"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $fromAI('customer_id', ``, 'string').trim() }}"
+          },
+          "matchingColumns": [
+            "customer_id"
+          ],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -336,
+        1072
+      ],
+      "id": "4d1cf64f-8729-4a0e-9c80-5f63d469d9c8",
+      "name": "Create Order"
+    },
+    {
+      "parameters": {
+        "description": "Adds one food item OR one deal to an existing order. A deal (e.g. \"Deal 1 - Family Feast\") is ONE single item at its fixed price: add the deal itself with its exact full name, NEVER its included items separately. Call once for each distinct item or deal. Use the exact menu item name as returned by Get Menu Items / the live menu (not the customer's raw wording). Requires order_id, menu_item_name, and quantity. Call Create Order first to get the order_id. customer_words is required: the customer's exact words for this item.",
+        "workflowId": {
+          "__rl": true,
+          "value": "CGqBpduqCQ9EAV20",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/CGqBpduqCQ9EAV20",
+          "cachedResultName": "Sub - Add Order Item"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "quantity": "={{ $fromAI('quantity', 'Number of this item ordered', 'number') }}",
+            "order_id": "={{ $fromAI('order_id', 'The order ID returned by Create Order', 'string').trim() }}",
+            "menu_item_name": "={{ $fromAI('menu_item_name', 'Exact menu item name from Get Menu Items', 'string') }}",
+            "customer_words": "={{ $fromAI('customer_words', 'The exact words the customer used for this item, e.g. burger or zinger burger. Copy from the customer message, never invent', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "order_id",
+              "id": "order_id",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "menu_item_name",
+              "id": "menu_item_name",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "quantity",
+              "id": "quantity",
+              "removed": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "customer_words",
+              "id": "customer_words",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -208,
+        1072
+      ],
+      "id": "cbb913c7-83cc-43f1-965d-e517dd53c639",
+      "name": "Add Order Item"
+    },
+    {
+      "parameters": {
+        "description": "Call only after the customer replied YES to the order summary.",
+        "workflowId": {
+          "__rl": true,
+          "value": "r6Vol4SSU3wIaQDh",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/r6Vol4SSU3wIaQDh",
+          "cachedResultName": "Sub - Finalize Order"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $fromAI('order_id', 'The order ID to finalize', 'string').trim() }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        1072
+      ],
+      "id": "8b924997-5e4c-471d-9c75-2cb6113bcaa4",
+      "name": "Finalize Order"
+    },
+    {
+      "parameters": {
+        "description": "Checks the status and total of a customer's order. If the customer provides a specific order_number, use that. If they don't know their order_number, pass their wa_id instead and this will look up their most recent order automatically. Returns status (Pending/Confirmed/etc) and total_amount.",
+        "workflowId": {
+          "__rl": true,
+          "value": "SCKLhYSc2ByYJHqm",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/SCKLhYSc2ByYJHqm",
+          "cachedResultName": "Sub - Check Order Status"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "wa_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('wa_id', ``, 'string') }}",
+            "order_number": "={{ $fromAI('order_number', 'Order number as digits, e.g. 6. Leave empty if unknown', 'number') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "wa_id",
+              "displayName": "wa_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        64,
+        1072
+      ],
+      "id": "53856abe-ea5f-455d-b338-2549004fe4a3",
+      "name": "Check Order Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c42e0cd3-84e0-42f9-aa2f-45ff22dc4752",
+              "leftValue": "={{ $json.messages[0].from }}",
+              "rightValue": "92XXXXXXXXXX",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "ba76d6d8-0eab-42f5-9f7f-1c7c16e906a6",
+              "leftValue": "={{ $json.messages[0].text.body.toLowerCase().trim() }}",
+              "rightValue": "orders",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1520,
+        448
+      ],
+      "id": "6f0fe74f-4c84-46cf-930c-c53540316846",
+      "name": "Is Owner Command?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "neq",
+              "keyValue": "Cancelled"
+            },
+            {
+              "keyName": "status",
+              "condition": "neq",
+              "keyValue": "Delivered"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        48
+      ],
+      "id": "bb5cc002-9ba6-424a-b6d7-2398eb665c91",
+      "name": "Get Orders",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1072,
+        48
+      ],
+      "id": "30e2f52e-a817-4f28-b6d1-5cb024d852c5",
+      "name": "Get many customers",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const orders = $('Get Orders').all()\n  .map(o => o.json)\n  .filter(o => ['Confirmed', 'Preparing', 'Out for Delivery'].includes(o.status));\n\nconst customers = $input.all().map(c => c.json);\n\nif (orders.length === 0) {\n  return [{ json: { text: \"📋 No active orders right now.\" } }];\n}\n\nconst lines = orders.map(o => {\n  const customer = customers.find(c => c.id === o.customer_id);\n  const name = customer ? customer.name : \"Unknown\";\n  return `#${o.order_number} — ${name} — Rs. ${o.total_amount} — ${o.status}`;\n});\n\nreturn [{ json: { text: \"📋 Active Orders\\n\" + lines.join(\"\\n\") } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        48
+      ],
+      "id": "1dd5a24e-59f9-4e2f-8e9a-0704e2cf4bdc",
+      "name": "join orders with customers"
+    },
+    {
+      "parameters": {
+        "tableId": "agent_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "wa_id",
+              "fieldValue": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}"
+            },
+            {
+              "fieldId": "incoming_message",
+              "fieldValue": "={{ $('Normalize Location Message').first().json.messages[0].text.body }}"
+            },
+            {
+              "fieldId": "reply_sent",
+              "fieldValue": "={{ $('AI Agent').first().json.output }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        832
+      ],
+      "id": "3623698b-8004-44cc-b22f-1a4a852f1c05",
+      "name": "save data in agent logs"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.text }}\n\nForm Link to update order status: https://tahirsn.app.n8n.cloud/form/3c3d31db-9616-40d5-844c-2e1fafae1a12",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        48
+      ],
+      "id": "ca0aa028-c2af-44e0-b1f7-8421b0643731",
+      "name": "notify owner active orders"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        832
+      ],
+      "id": "88f845ec-5832-48a0-bcc4-cd8ec286efa5",
+      "name": "reply to customer"
+    },
+    {
+      "parameters": {
+        "modelName": "sentence-transformers/all-MiniLM-L6-v2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
+      "typeVersion": 1,
+      "position": [
+        272,
+        1280
+      ],
+      "id": "7aa9fab8-9e13-4f58-ad46-2e2c5ffa2b85",
+      "name": "all-MiniLM-L6-v2"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search MDA Restaurant's information base — hours, delivery area, payment methods, policies on modifications and cancellations, and general FAQs about the restaurant. Use this for any question about the restaurant itself. Do NOT use this for live menu availability or prices (use Get Menu Items) or for order status (use Check Order Status).",
+        "tableName": {
+          "__rl": true,
+          "value": "restaurant_info",
+          "mode": "list",
+          "cachedResultName": "restaurant_info"
+        },
+        "options": {
+          "queryName": "match_restaurant_info"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        1072
+      ],
+      "id": "f046100d-e368-4d2d-9693-f5bab93fafef",
+      "name": "Restaurant Info"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Returns the URL of the current restaurant menu image. Use this when the customer asks to see a picture/photo of the menu, not for text-based menu questions (use Get Menu Items for that).",
+        "operation": "getAll",
+        "tableId": "restaurant_assets",
+        "limit": 4,
+        "orderBy": "updated_at.desc",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "asset_type",
+              "condition": "eq",
+              "keyValue": "menu_image"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        480,
+        1072
+      ],
+      "id": "e301228d-0a57-47e7-b8ca-c64ef69cf6a8",
+      "name": "Get Menu Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = String($json.output || '').replace(/\\*\\*(.+?)\\*\\*/g, '*$1*');\n\n// The model sometimes copies the <<<MENU / MENU>>> fence lines; customers must never see them\noutput = output.replace(/^[ \\t]*(?:<<<\\s*MENU|MENU\\s*>>>)[ \\t]*\\r?\\n?/gim, '').replace(/\\n{3,}/g, '\\n\\n');\n\n// Safety net: fix prices, names and stock notes on numbered menu lines the model typed itself\ntry {\n  const bm = $('Build Menu Text').first().json;\n  const shown = new Set((bm.display_lines || []).map(l => l.trim()));\n  const menu = [];\n  String(bm.menu_text || '')\n    .split('\\n')\n    .map(l => l.split(' | '))\n    .filter(p => p.length >= 2)\n    .forEach(p => {\n      const full = p[0].trim();\n      const price = (String(p[1]).match(/\\d+(?:\\.\\d+)?/) || [''])[0];\n      const left = (String(p[2] || '').match(/only (\\d+) left/) || [])[1];\n      if (!full || !price) return;\n      menu.push({ full, name: full.toLowerCase(), price, left });\n      const short = full.replace(/^deal\\s*\\d+\\s*[-–:]\\s*/i, '');\n      if (short !== full) menu.push({ full, name: short.toLowerCase(), price, left, alias: true });\n    });\n  menu.sort((a, b) => b.name.length - a.name.length);\n  output = output.split('\\n').map(line => {\n    if (shown.has(line.trim())) return line; // already the exact ready-made menu line\n    if (!/^\\s*\\d+[.)]\\s/.test(line)) return line;\n    const low = line.toLowerCase();\n    const hit = menu.find(m => low.includes(m.name));\n    if (!hit) return line;\n    let out = line;\n    if (hit.alias && !low.includes(hit.full.toLowerCase())) {\n      const i = low.indexOf(hit.name);\n      out = out.slice(0, i) + hit.full + out.slice(i + hit.name.length);\n    }\n    out = out.replace(/(Rs\\.?\\s*)[\\d,]+(\\.\\d+)?/i, (m, p1) => p1 + hit.price);\n    out = out.replace(/(?:[\\s,—–-]*available,?)?[\\s,—–-]*\\(?only \\d+ left\\)?/gi, '');\n    if (hit.left) out = out.replace(/\\s+$/, '') + ` (only ${hit.left} left)`;\n    return out;\n  }).join('\\n');\n} catch (e) {}\n\nconst match = output.match(/\\[SEND_IMAGE:(.*?)\\]/);\n\nif (match) {\n  const imageUrl = match[1];\n  const caption = output.replace(match[0], '').trim();\n  return [{ json: { hasImage: true, imageUrl, caption } }];\n}\nreturn [{ json: { hasImage: false, text: output } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        736
+      ],
+      "id": "eaf9a7f5-5303-46ed-9f19-3c2916b5366f",
+      "name": "Detect Image Marker"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ac14cd9f-ff4a-4662-9b25-0c9181bde133",
+              "leftValue": "={{ $json.hasImage }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        736
+      ],
+      "id": "820d8291-cb65-483e-b7e6-e3604154a1ce",
+      "name": "Has Image?"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "messageType": "image",
+        "mediaLink": "={{ $json.imageUrl }}",
+        "additionalFields": {
+          "mediaCaption": "={{ $json.caption }}"
+        }
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        640
+      ],
+      "id": "ee3c5696-dcc6-4ba5-9e35-fd729a31cfca",
+      "name": "Send Image"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {
+          "maxTokens": 2000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        1072
+      ],
+      "id": "d02aec51-e613-4195-92a5-43353fb7ce74",
+      "name": "openai/gpt-4o-mini"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8b084d41-f681-4fda-9753-d64ed6859ea4",
+              "leftValue": "={{ $json.messages }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2192,
+        640
+      ],
+      "id": "de33f045-8d05-432c-8cdd-ee3659aa8bd2",
+      "name": "Message Exists?"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=Sorry, something went wrong on our side 🙏 Please send your message again in a minute.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        928
+      ],
+      "id": "a683e343-e126-4534-910f-614e3d535be9",
+      "name": "error"
+    },
+    {
+      "parameters": {
+        "description": "Required for EVERY order (Pickup or Delivery) before Finalize Order.",
+        "workflowId": {
+          "__rl": true,
+          "value": "18RWAM0O7WvIWRdn",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/18RWAM0O7WvIWRdn",
+          "cachedResultName": "Sub - Set Delivery Info"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "delivery_address": "={{ $fromAI('delivery_address', 'Typed delivery address text, if given. Leave empty if a location pin was shared instead.', 'string') }}",
+            "delivery_lat": "={{ $fromAI('delivery_lat', 'Latitude from a shared WhatsApp location pin, if any', 'number') }}",
+            "delivery_lng": "={{ $fromAI('delivery_lng', 'Longitude from a shared WhatsApp location pin, if any', 'number') }}",
+            "order_id": "={{ $fromAI('order_id', 'The order ID to set delivery info for', 'string').trim() }}",
+            "fulfillment_type": "={{ $fromAI('fulfillment_type', 'Exactly Pickup or Delivery (capitalized)', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "fulfillment_type",
+              "displayName": "fulfillment_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "delivery_address",
+              "displayName": "delivery_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "delivery_lat",
+              "displayName": "delivery_lat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "delivery_lng",
+              "displayName": "delivery_lng",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "aae343b2-7305-4e6c-b473-b7ab023fbde9",
+      "name": "Set Delivery Address",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst msg = item.messages[0];\nif (msg.type === 'location' && msg.location) {\n  msg.text = { body: `[LOCATION SHARED] latitude: ${msg.location.latitude}, longitude: ${msg.location.longitude}` };\n}\nreturn { json: item };"
+      },
+      "id": "64727438-a74a-449d-9e02-c67837da4b59",
+      "name": "Normalize Location Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1744,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Returns the real items, fulfillment, fee and total for order_id. Call before showing the summary.",
+        "workflowId": {
+          "__rl": true,
+          "value": "wjqpmd0QDR0wTap4",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/wjqpmd0QDR0wTap4",
+          "cachedResultName": "Sub - Get Order Summary"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('order_id', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        1088
+      ],
+      "id": "3d0a1f65-9799-4360-8188-3bd181b16a77",
+      "name": "Get Order Summary"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9297697a-67dc-4ee6-8958-ed634bdfba55",
+              "leftValue": "={{ $now.setZone('Asia/Karachi').hour >= 11 && $now.setZone('Asia/Karachi').hour < 23 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1072,
+        640
+      ],
+      "id": "775324fc-fdc2-4447-90cc-689c5c206673",
+      "name": "Restaurant Open?",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=I can only read text messages for now 🙏",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1744,
+        640
+      ],
+      "id": "9d625299-bd96-4319-9607-773323543f54",
+      "name": "Message is not text"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=Sorry 🙏 MDA Restaurant is closed right now. We're open from 11:00 AM to 11:00 PM (Karachi time). Please message us then and we'll be happy to take your order! 🍽️",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -64,
+        432
+      ],
+      "id": "c61ee47b-25e0-4223-bac1-5d5481fd11c8",
+      "name": "Closed Message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "o1a2b3c4-0001-4000-8000-000000000001",
+              "leftValue": "={{ $json.messages[0].from }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "92XXXXXXXXXX"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "id": "ea742fe1-5713-498b-9f62-18fe78598902",
+      "name": "Is Owner Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1296,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "cachedResultName": "Owner - Menu Assistant Agent",
+          "cachedResultUrl": "/workflow/NV9pyIVu4AUZjuwj",
+          "mode": "list",
+          "value": "NV9pyIVu4AUZjuwj"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "message",
+              "id": "message",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "owner_id",
+              "id": "owner_id",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "message": "={{ $json.messages[0].text.body }}",
+            "owner_id": "={{ $json.messages[0].from }}"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "98fd88a4-2475-4e37-ace6-a06fb5c5384a",
+      "name": "Call Menu Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        -1072,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1240452379159211",
+        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ String($json.reply || '').replace(/\\*\\*(.+?)\\*\\*/g, '*$1*') }}",
+        "additionalFields": {}
+      },
+      "id": "f782b445-6f93-4006-8b6e-346372f2a9f8",
+      "name": "Send Menu Agent Reply to Owner",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -64,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "returnAll": true,
+        "orderBy": "name",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_archived",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "5d651146-902e-433e-8073-e692723874cc",
+      "name": "Get Live Menu",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1072,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json).filter(m => m.id && !m.is_archived);\nconst status = m => {\n  if (!m.is_available) return 'unavailable today';\n  if (m.is_limited) return Number(m.stock_qty) > 0 ? `available, only ${m.stock_qty} left` : 'out of stock';\n  return 'available';\n};\nconst fmt = m => `${m.name} | Rs. ${Number(m.price)} | ${status(m)}`;\nconst deals = items.filter(m => m.is_deal).sort((a, b) => (a.deal_number || 0) - (b.deal_number || 0));\nconst regular = items.filter(m => !m.is_deal);\nconst until = d => d.valid_until ? new Date(new Date(d.valid_until).getTime() - 60000)\n  .toLocaleDateString('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short' }) : '';\nconst tag = m => {\n  if (!m.is_available) return ' ❌ unavailable today';\n  if (m.is_limited) return Number(m.stock_qty) > 0 ? ` ⚠️ only ${m.stock_qty} left` : ' ❌ sold out';\n  return '';\n};\n\n// Sections come from menu_items.category (set by the owner). Known sections keep a fixed order and emoji; new ones are added alphabetically.\nconst ORDER = ['Burgers', 'Rolls & Sandwiches', 'Fries & Snacks', 'Karahi & Handi', 'Biryani & Rice', 'Bread & Sides', 'Drinks'];\nconst EMOJI = { 'burgers': '🍔', 'rolls & sandwiches': '🌯', 'fries & snacks': '🍟', 'karahi & handi': '🍖', 'biryani & rice': '🍛', 'bread & sides': '🫓', 'drinks': '🥤' };\nconst FALLBACK = 'More Items';\nconst map = new Map();\nfor (const m of regular) {\n  const k = String(m.category || '').trim() || FALLBACK;\n  if (!map.has(k)) map.set(k, []);\n  map.get(k).push(m);\n}\nconst rank = k => { const i = ORDER.findIndex(c => c.toLowerCase() === k.toLowerCase()); return i >= 0 ? i : k === FALLBACK ? 1000 : 500; };\nconst keys = [...map.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));\n\n// Ready-made WhatsApp menu with ONE continuous numbering (deals first, then categories)\nconst display = [];\nlet n = 0;\nif (deals.length) {\n  display.push('🔥 *DEALS* 🔥');\n  for (const d of deals) {\n    n++;\n    display.push(`${n}. *${d.name}* — Rs. ${Number(d.price)}${tag(d)}`);\n    if (d.deal_description) display.push(`   🎁 ${d.deal_description}`);\n    if (d.valid_until) display.push(`   ⏳ valid until ${until(d)}`);\n  }\n}\nfor (const k of keys) {\n  display.push('');\n  display.push(`${EMOJI[k.toLowerCase()] || '🍽️'} *${k.toUpperCase()}*`);\n  for (const m of map.get(k).sort((a, b) => a.name.localeCompare(b.name))) { n++; display.push(`${n}. ${m.name} — Rs. ${Number(m.price)}${tag(m)}`); }\n}\nwhile (display.length && display[0] === '') display.shift();\n\nconst lines = [];\nlines.push('MENU TO SHOW: when the customer asks for the menu or prices as text, send the block below EXACTLY as written (same numbers, emojis, stars, category headings and line breaks). Only add one short friendly line before it and \"Reply with a number or item name to order 😊\" after it. The numbers are what customers reply with. A deal is ONE orderable item: when a customer wants a deal, call Add Order Item once with the deal\\'s FULL name (e.g. \"Deal 1 - Family Feast\"), never its included items separately.');\nlines.push('<<<MENU');\nlines.push(...display);\nlines.push('MENU>>>');\nlines.push('');\nlines.push('MENU DATA (use for questions about price, stock or contents; do not paste this part):');\nfor (const d of deals) {\n  lines.push(fmt(d));\n  lines.push(`   includes: ${d.deal_description || ''}${d.valid_until ? ` (valid until ${until(d)})` : ''}`);\n}\nfor (const m of regular) lines.push(fmt(m));\nconst base = $('Normalize Location Message').first().json;\nreturn [{ json: { ...base, menu_text: lines.join('\\n'), display_lines: display.filter(Boolean) } }];"
+      },
+      "id": "6d1fb99b-cd7c-4a2e-9d5a-e3ac9918b5e4",
+      "name": "Build Menu Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f9f9d4aa-6d24-43b3-94e4-a6dd880c0d16",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "text"
+            },
+            {
+              "id": "f9f9d4aa-6d24-43b3-94e4-a6dd880c0d17",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "location"
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1968,
+        544
+      ],
+      "id": "e16fa772-30ec-4bbb-a693-b45b0aa1abfb",
+      "name": "Is text or location?"
+    }
+  ],
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Detect Image Marker",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Message Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Menu Items": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find or Create Customer": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Order": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Order Item": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Order": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Order Status": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Owner Command?": {
+      "main": [
+        [
+          {
+            "node": "Get Orders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Owner Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Orders": {
+      "main": [
+        [
+          {
+            "node": "Get many customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many customers": {
+      "main": [
+        [
+          {
+            "node": "join orders with customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "join orders with customers": {
+      "main": [
+        [
+          {
+            "node": "notify owner active orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reply to customer": {
+      "main": [
+        [
+          {
+            "node": "save data in agent logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "all-MiniLM-L6-v2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Restaurant Info",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restaurant Info": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Menu Image": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Image Marker": {
+      "main": [
+        [
+          {
+            "node": "Has Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image?": {
+      "main": [
+        [
+          {
+            "node": "Send Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "reply to customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "openai/gpt-4o-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Exists?": {
+      "main": [
+        [
+          {
+            "node": "Is text or location?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Delivery Address": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Location Message": {
+      "main": [
+        [
+          {
+            "node": "Is Owner Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Order Summary": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restaurant Open?": {
+      "main": [
+        [
+          {
+            "node": "Get Live Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Closed Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Owner Message?": {
+      "main": [
+        [
+          {
+            "node": "Call Menu Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Restaurant Open?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Menu Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Menu Agent Reply to Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Live Menu": {
+      "main": [
+        [
+          {
+            "node": "Build Menu Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Menu Text": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is text or location?": {
+      "main": [
+        [
+          {
+            "node": "Normalize Location Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message is not text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "91830589-775d-4483-ab62-bda3840abed5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "YKh0iBzirXvDF2m7",
+  "tags": []
+}

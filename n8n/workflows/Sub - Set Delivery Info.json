@@ -1,0 +1,289 @@
+{
+  "name": "Sub - Set Delivery Info",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "order_id"
+            },
+            {
+              "name": "fulfillment_type"
+            },
+            {
+              "name": "delivery_address"
+            },
+            {
+              "name": "delivery_lat",
+              "type": "number"
+            },
+            {
+              "name": "delivery_lng",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "57ec976e-383c-437a-9f15-5b1865f815b7",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1040,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "order_id",
+              "value": "={{ $json.order_id.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "fulfillment_type",
+              "value": "={{ $json.fulfillment_type.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "23c9b213-fd49-4ed6-a21c-d882300b285a",
+      "name": "Sanitize Inputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -816,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const type = $json.fulfillment_type;\nconst address = ($json.delivery_address || '').toString().trim();\nconst lat = Number($json.delivery_lat);\nconst lng = Number($json.delivery_lng);\n\n// A real location: valid numbers, in range, and not the (0, 0) placeholder\nconst hasLocation = Number.isFinite(lat) && Number.isFinite(lng)\n  && !(lat === 0 && lng === 0)\n  && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;\n\nif (type !== 'Delivery' && type !== 'Pickup') {\n  return [{ json: { valid: false, error: \"fulfillment_type must be 'Delivery' or 'Pickup'\" } }];\n}\n\nconst isDelivery = type === 'Delivery';\n\nif (isDelivery && !address && !hasLocation) {\n  return [{ json: { valid: false, error: 'Delivery address or location is required for delivery orders' } }];\n}\n\nreturn [{ json: {\n  valid: true,\n  order_id: $json.order_id,\n  fulfillment_type: type,\n  delivery_address: isDelivery ? (address || null) : null,\n  delivery_lat: isDelivery && hasLocation ? lat : null,\n  delivery_lng: isDelivery && hasLocation ? lng : null,\n  delivery_fee: isDelivery ? 100 : 0\n} }];"
+      },
+      "id": "814fbe5b-2fa6-4e2b-91a3-9d479a44f7e5",
+      "name": "Validate And Compute Fee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": "",
+              "id": "24f5c3a8-e218-4ed2-9bac-99517ecc1b42"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "94f386dd-1eb7-463a-be1f-97d88b3fa02b",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -368,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "fulfillment_type",
+              "fieldValue": "={{ $json.fulfillment_type }}"
+            },
+            {
+              "fieldId": "delivery_address",
+              "fieldValue": "={{ $json.delivery_address }}"
+            },
+            {
+              "fieldId": "delivery_lat",
+              "fieldValue": "={{ $json.delivery_lat }}"
+            },
+            {
+              "fieldId": "delivery_lng",
+              "fieldValue": "={{ $json.delivery_lng }}"
+            },
+            {
+              "fieldId": "delivery_fee",
+              "fieldValue": "={{ $json.delivery_fee }}"
+            }
+          ]
+        }
+      },
+      "id": "305a5459-1e24-4674-83b2-cad65707899f",
+      "name": "Update Order Delivery Info",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "s2",
+              "name": "fulfillment_type",
+              "value": "={{ $json.fulfillment_type }}",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "delivery_fee",
+              "value": "={{ $json.delivery_fee }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "24565447-137c-41a6-98eb-d58270afcb2c",
+      "name": "Shape Tool Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        80,
+        -80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "0e2471be-18dc-4a3d-9adb-7d7a55fb4ca8",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        112
+      ]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Inputs": {
+      "main": [
+        [
+          {
+            "node": "Validate And Compute Fee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate And Compute Fee": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Update Order Delivery Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Order Delivery Info": {
+      "main": [
+        [
+          {
+            "node": "Shape Tool Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "1dc83e2e-5df7-446c-96b8-0ccab05d6680",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "18RWAM0O7WvIWRdn",
+  "tags": []
+}

@@ -1,0 +1,768 @@
+{
+  "name": "Sub - Add Order Item",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "order_id"
+            },
+            {
+              "name": "menu_item_name"
+            },
+            {
+              "name": "quantity",
+              "type": "number"
+            },
+            {
+              "name": "customer_words"
+            }
+          ]
+        }
+      },
+      "id": "2430a088-26fe-4369-aaa4-24ac23f18923",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2608,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4d28ffea-03c6-42ac-afc3-16f85d298425",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "316b5532-8cb5-4539-8840-8ea0340222a7",
+      "name": "Item Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1264,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cd0b5c23-2325-42c4-92a0-65c2956b1018",
+              "leftValue": "={{ $json.is_available }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a8c13907-311e-46a1-9b5a-3631f52ee2be",
+      "name": "Is available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1040,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4dc9243c-b4d2-43ec-8697-d17628707029",
+              "leftValue": "={{ $json.is_limited }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "76d0d3c5-1849-4de9-b8c0-dbf61d0056f3",
+      "name": "Is limited stock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -816,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "31023410-bf44-40a0-8b4e-f139f7fd54b7",
+              "leftValue": "={{ $json.stock_qty }}",
+              "rightValue": "={{ $('Sanitize Inputs').item.json.quantity }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9cd83856-5ea1-44f7-b20a-41f3f8c07d50",
+      "name": "Enough stock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -592,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2830f932-e1e2-4801-8361-eab2e209c3da",
+              "leftValue": "={{ $('Lookup Menu Item').item.json.is_limited }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "39c265ed-be50-4317-9883-b17fc0ab1a35",
+      "name": "Was this a limited item?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c3acdcd0-3241-4639-9a4f-4bda7273bc8a",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "3b45a9f2-2810-4a24-bf8b-23af3c2ba896",
+              "name": "order_id",
+              "value": "={{ $('Insert Order Item').item.json.order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "8c02ab75-08dc-4f34-8b87-74c10e714d3c",
+              "name": "menu_item_id",
+              "value": "={{ $('Insert Order Item').item.json.menu_item_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4a1541dd-62cc-46dc-afe7-d95188a75f3c",
+              "name": "quantity",
+              "value": "={{ $('Insert Order Item').item.json.quantity }}",
+              "type": "number"
+            },
+            {
+              "id": "192d3a27-b6ed-4942-bde3-30494cd04a66",
+              "name": "line_total",
+              "value": "={{ $('Insert Order Item').item.json.line_total }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        304,
+        160
+      ],
+      "id": "53411b63-4541-4340-ae90-7e403c7bf065",
+      "name": "Confirm Item Added (No Stock Update)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6ac7eb7b-8290-4b37-866b-8ee97cd45092",
+              "name": "order_id",
+              "value": "={{ $json.order_id.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "e4cd17ee-1f7d-4a21-a946-f11f60a61525",
+              "name": "menu_item_name",
+              "value": "={{ $json.menu_item_name.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "761bbe31-fdfb-455b-985f-dc36e8c2b206",
+              "name": "quantity",
+              "value": "={{ $json.quantity }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "78caf2a7-2ecf-4860-95eb-5f7aa6e6969c",
+      "name": "Sanitize Inputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -2384,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "name",
+              "condition": "eq",
+              "keyValue": "={{ $json.menu_item_name }}"
+            }
+          ]
+        }
+      },
+      "id": "2614f7e7-a1a0-4e30-b530-b3e7760767c7",
+      "name": "Lookup Menu Item",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1488,
+        352
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "657843fd-4794-4276-9015-3472e8268c2b",
+              "name": "error",
+              "value": "Item not found in menu",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c95b4b1b-3e71-4282-8d38-edc1ff5909ba",
+      "name": "Item Not Found (Error)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1040,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "657843fd-4794-4276-9015-3472e8268c2b",
+              "name": "error",
+              "value": "This item is currently unavailable",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6cd98ac9-c338-453c-a236-f55c1246bc77",
+      "name": "Item Unavailable (Error)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -816,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "de0e4532-0e12-45e6-a4b5-2684218e3bdb",
+              "name": "menu_item_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "c5951a26-9cc8-4c2b-b8d0-ab701315f09a",
+              "name": "quantity",
+              "value": "={{ $('Sanitize Inputs').item.json.quantity }}",
+              "type": "number"
+            },
+            {
+              "id": "05fa3b5a-5192-43fd-8ab5-4f55fa6d394b",
+              "name": "order_id",
+              "value": "={{ $('Sanitize Inputs').item.json.order_id.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "8a3e509a-b40b-46a9-a9a2-2c763d248871",
+              "name": "line_total",
+              "value": "={{ $json.price * $('Sanitize Inputs').item.json.quantity }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "09cfd371-8263-45db-962d-666d6a03550c",
+      "name": "Prepare Order Item Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -368,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "order_items",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $json.order_id }}"
+            },
+            {
+              "fieldId": "menu_item_id",
+              "fieldValue": "={{ $json.menu_item_id }}"
+            },
+            {
+              "fieldId": "quantity",
+              "fieldValue": "={{ $json.quantity }}"
+            },
+            {
+              "fieldId": "line_total",
+              "fieldValue": "={{ $json.line_total }}"
+            }
+          ]
+        }
+      },
+      "id": "58b6dda3-b63f-441e-a0ac-097a092f9926",
+      "name": "Insert Order Item",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "menu_items",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Prepare Order Item Fields').item.json.menu_item_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock_qty",
+              "fieldValue": "={{ $('Lookup Menu Item').item.json.stock_qty - $('Prepare Order Item Fields').item.json.quantity }}"
+            }
+          ]
+        }
+      },
+      "id": "6c57b82e-5cce-46d4-8ba9-a0f5244648d7",
+      "name": "Decrement Stock",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        304,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={ \n  \"error\": \"Insufficient stock\", \n  \"available\": {{ $json.stock_qty}}\n}",
+        "options": {}
+      },
+      "id": "5ab3ab30-4699-4323-93e5-fdf5f329af86",
+      "name": "Insufficient Stock (Error)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -368,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2160,
+        256
+      ],
+      "id": "461235ed-e05c-40ab-a479-56ae10c3ca6c",
+      "name": "Get All Menu Items",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Sanitize Inputs').first().json;\nconst words = String(input.customer_words || '');\nif (!words.trim()) {\n  return [{ json: { ...input, ambiguous: true,\n    error: 'customer_words is required. Call this tool again and put the customer\\'s exact words for this item (or the menu number they replied with) in customer_words.' } }];\n}\nconst menu = $input.all().map(i => i.json).filter(m => m.id && !m.is_archived);\n\n// --- Menu numbers: same order as the numbered text menu (deals first, then categories, items A-Z) ---\nconst numMatch = words.trim().match(/^#?\\s*(\\d{1,3})$/);\nif (numMatch) {\n  const ORDER = ['burgers', 'rolls & sandwiches', 'fries & snacks', 'karahi & handi', 'biryani & rice', 'bread & sides', 'drinks'];\n  const FALLBACK = 'More Items';\n  const deals = menu.filter(m => m.is_deal).sort((a, b) => (a.deal_number || 0) - (b.deal_number || 0));\n  const groups = new Map();\n  for (const m of menu.filter(m => !m.is_deal)) {\n    const k = String(m.category || '').trim() || FALLBACK;\n    if (!groups.has(k)) groups.set(k, []);\n    groups.get(k).push(m);\n  }\n  const rank = k => { const i = ORDER.indexOf(k.toLowerCase()); return i >= 0 ? i : k === FALLBACK ? 1000 : 500; };\n  const keys = [...groups.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));\n  const list = [...deals];\n  for (const k of keys) list.push(...groups.get(k).sort((a, b) => a.name.localeCompare(b.name)));\n  const n = Number(numMatch[1]);\n  const hit = list[n - 1];\n  if (!hit) {\n    return [{ json: { ...input, ambiguous: true,\n      error: `There is no item number ${n} on the menu (it has ${list.length} numbered entries). Ask the customer which item they mean.` } }];\n  }\n  return [{ json: { ...input, menu_item_name: hit.name, ambiguous: false } }];\n}\n\nconst stem = t => (t.length > 3 ? t.replace(/s$/, '') : t);\nconst tokens = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ')\n  .split(/\\s+/).filter(Boolean).map(stem);\nconst ignore = new Set(['a','an','the','one','two','three','please','want','order','like','and','i','of','piece','pc']);\nconst rawTokens = tokens(words);\n// keep a number when it directly follows the word deal (\"deal 2\"); other bare numbers are quantities\nconst cust = rawTokens.filter((t, i) => !ignore.has(t) && (!/^\\d+$/.test(t) || rawTokens[i - 1] === 'deal'));\n\nlet result = { ...input, ambiguous: false };\nif (cust.length) {\n  const matches = menu.filter(m => { const nt = tokens(m.name); return cust.every(t => nt.includes(t)); });\n  const exact = menu.find(m => tokens(m.name).join(' ') === cust.join(' '));\n  if (!exact && matches.length > 1) {\n    result = { ...input, ambiguous: true,\n      error: `Ambiguous item. The customer only said \"${words}\". Ask which one they want: ${matches.map(m => `${m.name} (Rs. ${m.price})`).join(', ')}. Do not choose for them.` };\n  } else {\n    // resolve to the real menu name (e.g. \"Family Feast\" -> \"Deal 1 - Family Feast\")\n    const hit = exact || (matches.length === 1 ? matches[0] : null);\n    if (hit) result = { ...input, menu_item_name: hit.name, ambiguous: false };\n  }\n}\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        256
+      ],
+      "id": "3991b5ef-f713-41e5-92db-bfd1234660b1",
+      "name": "Check Item Ambiguity"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ea68a518-7b34-40ea-ae07-5cf2e4e07d90",
+              "leftValue": "={{ $json.ambiguous }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1712,
+        256
+      ],
+      "id": "e3cb5dc7-4018-42fd-9fb3-7044a78fbd65",
+      "name": "Is Ambiguous?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ec16ee63-80c5-4b95-8cee-7cffcf4f2334",
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1488,
+        160
+      ],
+      "id": "43d5d7b4-b4f4-4e79-8215-bd2000b6ca26",
+      "name": "Error: Ambiguous Item"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Item Exists?": {
+      "main": [
+        [
+          {
+            "node": "Is available?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Item Not Found (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is available?": {
+      "main": [
+        [
+          {
+            "node": "Is limited stock?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Item Unavailable (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is limited stock?": {
+      "main": [
+        [
+          {
+            "node": "Enough stock?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Order Item Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough stock?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Order Item Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insufficient Stock (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was this a limited item?": {
+      "main": [
+        [
+          {
+            "node": "Decrement Stock",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confirm Item Added (No Stock Update)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Inputs": {
+      "main": [
+        [
+          {
+            "node": "Get All Menu Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Menu Item": {
+      "main": [
+        [
+          {
+            "node": "Item Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Order Item Fields": {
+      "main": [
+        [
+          {
+            "node": "Insert Order Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Order Item": {
+      "main": [
+        [
+          {
+            "node": "Was this a limited item?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Menu Items": {
+      "main": [
+        [
+          {
+            "node": "Check Item Ambiguity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Item Ambiguity": {
+      "main": [
+        [
+          {
+            "node": "Is Ambiguous?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Ambiguous?": {
+      "main": [
+        [
+          {
+            "node": "Error: Ambiguous Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Menu Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "505486d1-781d-44b6-86b7-ca58004ac087",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "CGqBpduqCQ9EAV20",
+  "tags": []
+}

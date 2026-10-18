@@ -1,0 +1,466 @@
+{
+  "name": "Sub - Check Order Status",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "wa_id"
+            },
+            {
+              "name": "order_number",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2144,
+        64
+      ],
+      "id": "cd5653fc-99b7-4ed6-9b07-cc4f226a9ca0",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "790614db-4d17-4b96-9c54-26da737d993f",
+              "name": "wa_id",
+              "value": "={{ $json.wa_id.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "db404470-12fd-47ab-8c59-aa6586af6b0f",
+              "name": "order_number",
+              "value": "={{ $json.order_number }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1920,
+        64
+      ],
+      "id": "913a213f-fdaf-406d-8b1a-7dcd404c5cc3",
+      "name": "Sanitize Inputs"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "wa_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.wa_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        160
+      ],
+      "id": "0d8b15d9-0ece-4f29-9244-41ae496dcd8c",
+      "name": "Lookup Customer by WA ID",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8ff5f1d7-45d4-4f4c-bce2-439ebedc7052",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1232,
+        160
+      ],
+      "id": "80846455-7115-47c1-943a-c8994baf2837",
+      "name": "Customer Exists?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "limit": 1,
+        "orderBy": "created_at.desc",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "customer_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -976,
+        64
+      ],
+      "id": "345864fc-ba86-4da8-ae73-a4b1a92a5d12",
+      "name": "Get Latest Order",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{ \"error\": \"No customer record found\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -992,
+        256
+      ],
+      "id": "0361be2b-211f-407f-bb26-2e3d2843a407",
+      "name": "Customer Not Found (Error)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -592,
+        -64
+      ],
+      "id": "46e7e05a-cec6-4128-aaa9-79c854e97c1d",
+      "name": "Merge Order Results"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "78d9e295-2def-44d3-864a-008d7916d67d",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -368,
+        -64
+      ],
+      "id": "c2e3024b-fa7c-48da-9f94-cd5a6af166c0",
+      "name": "Order Exists?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ff48446e-834b-4571-94ff-a0d981176fca",
+              "name": "status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "3f9605c9-5e10-413f-bb6f-4e35d1023014",
+              "name": "total_amount",
+              "value": "={{ $json.total_amount }}",
+              "type": "string"
+            },
+            {
+              "id": "dbd37dd8-5fe1-4eb8-ad0a-4256d511d9de",
+              "name": "order_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "296f1f04-f599-46c6-8c67-f1ff64a413ec",
+              "name": "order_number",
+              "value": "={{ $json.order_number }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -144,
+        -112
+      ],
+      "id": "9d09a112-4da7-4941-8406-c364ac30dc67",
+      "name": "Format Order Response"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{ \"error\": \"No matching order found\" }",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -144,
+        80
+      ],
+      "id": "ea07e768-c2c4-4548-a902-74e61f94b19e",
+      "name": "Order Not Found (Error)"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_number",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_number }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        -64
+      ],
+      "id": "37a14c39-d800-436d-815e-f2b7d3dd5de2",
+      "name": "Lookup Order by Number",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "614d5544-2f76-4181-8c06-e1a3996cbf7a",
+              "leftValue": "={{ $json.order_number }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1696,
+        64
+      ],
+      "id": "cd571dc6-e578-4239-927b-0a1c2b44bc0c",
+      "name": "Order Number Provided?"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Inputs": {
+      "main": [
+        [
+          {
+            "node": "Order Number Provided?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Customer by WA ID": {
+      "main": [
+        [
+          {
+            "node": "Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Customer Not Found (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Order": {
+      "main": [
+        [
+          {
+            "node": "Merge Order Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Customer Not Found (Error)": {
+      "main": [
+        [
+          {
+            "node": "Merge Order Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Order Results": {
+      "main": [
+        [
+          {
+            "node": "Order Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Exists?": {
+      "main": [
+        [
+          {
+            "node": "Format Order Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Order Not Found (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Order by Number": {
+      "main": [
+        [
+          {
+            "node": "Merge Order Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Number Provided?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Order by Number",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Customer by WA ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "61f68fdf-7884-4f8c-95d2-ddac62b49d07",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+  },
+  "nodeGroups": [],
+  "id": "SCKLhYSc2ByYJHqm",
+  "tags": []
+}
