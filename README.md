@@ -30,10 +30,10 @@ with a double approval. The menu image redraws itself whenever the menu changes.
 | | |
 |---|---|
 | **Menu as text**<br><img src="assets/01_menu_text.png" width="300"> | **Price question**<br><img src="assets/01_b_menu_text.png" width="300"> |
-| **Ambiguous item: the bot asks which one**<br><img src="assets/01_02_menu_text.png" width="300"> | **Ordering a deal** (earlier, larger demo menu)<br><img src="assets/02-deal-order.png" width="300"> |
-| **Order summary before confirming**<br><img src="assets/03-order-summary.png" width="300"> | **Confirmation and status updates**<br><img src="assets/confirmation-and-status-update-notification.png" width="300"> |
-| **Owner approves a menu change in WhatsApp**<br><img src="assets/04-owner-approval.png" width="300"> | **Auto-generated menu image**<br><img src="assets/05-menu-image.png" width="300"> |
-| **Owner email for a new order**<br><img src="assets/06-owner-email.png" width="300"> | **Owner updates order status (form)**<br><img src="assets/07-status-update.png" width="300"> |
+| **Ambiguous item: the bot asks which one**<br><img src="assets/01_02_menu_text.png" width="300"> | **Order summary before confirming**<br><img src="assets/03-order-summary.png" width="300"> |
+| **Confirmation and status updates**<br><img src="assets/confirmation-and-status-update-notification.png" width="300"> | **Owner approves a menu change in WhatsApp**<br><img src="assets/04-owner-approval.png" width="300"> |
+| **Auto-generated menu image**<br><img src="assets/05-menu-image.png" width="300"> | **Owner email for a new order**<br><img src="assets/06-owner-email.png" width="300"> |
+| **Owner updates order status (form)**<br><img src="assets/07-status-update.png" width="300"> |  |
 
 **n8n canvas (main agent workflow)**
 
