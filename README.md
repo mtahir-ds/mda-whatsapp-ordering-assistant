@@ -25,6 +25,20 @@ with a double approval. The menu image redraws itself whenever the menu changes.
 - Any menu change triggers a debounced regeneration of a truck-art style menu PNG (no AI image generation: SVG rendered with resvg), uploaded to Supabase Storage.
 - Deals expire automatically (pg_cron). Deal stock follows its items; cancelled orders return stock.
 
+## Demo
+
+| | |
+|---|---|
+| **Menu as text**<br><img src="assets/01_menu_text.png" width="300"> | **Price question**<br><img src="assets/01_b_menu_text.png" width="300"> |
+| **Ambiguous item: the bot asks which one**<br><img src="assets/01_02_menu_text.png" width="300"> | **Ordering a deal** (earlier, larger demo menu)<br><img src="assets/02-deal-order.png" width="300"> |
+| **Order summary before confirming**<br><img src="assets/03-order-summary.png" width="300"> | **Confirmation and status updates**<br><img src="assets/confirmation-and-status-update-notification.png" width="300"> |
+| **Owner approves a menu change in WhatsApp**<br><img src="assets/04-owner-approval.png" width="300"> | **Auto-generated menu image**<br><img src="assets/05-menu-image.png" width="300"> |
+| **Owner email for a new order**<br><img src="assets/06-owner-email.png" width="300"> | **Owner updates order status (form)**<br><img src="assets/07-status-update.png" width="300"> |
+
+**n8n canvas (main agent workflow)**
+
+![n8n canvas](assets/08-n8n-canvas.png)
+
 ## Architecture
 
 ![Architecture](assets/architecture.png)
