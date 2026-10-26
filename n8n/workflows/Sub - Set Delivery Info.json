@@ -21,17 +21,20 @@
             {
               "name": "delivery_lng",
               "type": "number"
+            },
+            {
+              "name": "customer_message"
             }
           ]
         }
       },
-      "id": "57ec976e-383c-437a-9f15-5b1865f815b7",
+      "id": "4f6de378-ca57-402f-9871-90a39fb43ac4",
       "name": "When Executed by Another Workflow",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.2,
       "position": [
-        -1040,
-        16
+        0,
+        96
       ]
     },
     {
@@ -55,26 +58,26 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "23c9b213-fd49-4ed6-a21c-d882300b285a",
+      "id": "ace84f3d-b0ac-4457-bed7-120a43a0c2f6",
       "name": "Sanitize Inputs",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -816,
-        16
+        224,
+        96
       ]
     },
     {
       "parameters": {
-        "jsCode": "const type = $json.fulfillment_type;\nconst address = ($json.delivery_address || '').toString().trim();\nconst lat = Number($json.delivery_lat);\nconst lng = Number($json.delivery_lng);\n\n// A real location: valid numbers, in range, and not the (0, 0) placeholder\nconst hasLocation = Number.isFinite(lat) && Number.isFinite(lng)\n  && !(lat === 0 && lng === 0)\n  && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;\n\nif (type !== 'Delivery' && type !== 'Pickup') {\n  return [{ json: { valid: false, error: \"fulfillment_type must be 'Delivery' or 'Pickup'\" } }];\n}\n\nconst isDelivery = type === 'Delivery';\n\nif (isDelivery && !address && !hasLocation) {\n  return [{ json: { valid: false, error: 'Delivery address or location is required for delivery orders' } }];\n}\n\nreturn [{ json: {\n  valid: true,\n  order_id: $json.order_id,\n  fulfillment_type: type,\n  delivery_address: isDelivery ? (address || null) : null,\n  delivery_lat: isDelivery && hasLocation ? lat : null,\n  delivery_lng: isDelivery && hasLocation ? lng : null,\n  delivery_fee: isDelivery ? 100 : 0\n} }];"
+        "jsCode": "const type = $json.fulfillment_type;\nconst address = ($json.delivery_address || '').toString().trim();\nconst lat = Number($json.delivery_lat);\nconst lng = Number($json.delivery_lng);\nconst msg = String($('When Executed by Another Workflow').first().json.customer_message || '');\n\nconst hasLocation = Number.isFinite(lat) && Number.isFinite(lng)\n  && !(lat === 0 && lng === 0)\n  && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;\n\nif (type !== 'Delivery' && type !== 'Pickup') {\n  return [{ json: { valid: false, error: \"fulfillment_type must be 'Delivery' or 'Pickup'\" } }];\n}\n\nconst isDelivery = type === 'Delivery';\n\n// Pickup must be the customer's own choice (their latest message), never the assistant's guess\nif (!isDelivery && !/pick\\s*-?\\s*up|collect|takeaway|take\\s*away/i.test(msg)) {\n  return [{ json: { valid: false, error: 'The customer has not chosen Pickup. Do NOT choose it for them. Ask: Would you like Delivery (Rs. 100 fee) or Pickup? and wait for their reply.' } }];\n}\n\nif (isDelivery && !address && !hasLocation) {\n  return [{ json: { valid: false, error: 'Delivery address or location is required for delivery orders. Ask the customer to share their location pin or type their full address.' } }];\n}\n\nreturn [{ json: {\n  valid: true,\n  order_id: $json.order_id,\n  fulfillment_type: type,\n  delivery_address: isDelivery ? (address || null) : null,\n  delivery_lat: isDelivery && hasLocation ? lat : null,\n  delivery_lng: isDelivery && hasLocation ? lng : null,\n  delivery_fee: isDelivery ? 100 : 0\n} }];"
       },
-      "id": "814fbe5b-2fa6-4e2b-91a3-9d479a44f7e5",
+      "id": "c7a5491e-27e2-4e11-b5a8-d4927367ceba",
       "name": "Validate And Compute Fee",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -592,
-        16
+        448,
+        96
       ]
     },
     {
@@ -102,13 +105,13 @@
         },
         "options": {}
       },
-      "id": "94f386dd-1eb7-463a-be1f-97d88b3fa02b",
+      "id": "1e41e517-4372-44b3-b8ab-e433028cfc41",
       "name": "Is Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -368,
-        16
+        672,
+        96
       ]
     },
     {
@@ -149,13 +152,13 @@
           ]
         }
       },
-      "id": "305a5459-1e24-4674-83b2-cad65707899f",
+      "id": "2c967161-9104-4123-ad9f-f4a816ce388d",
       "name": "Update Order Delivery Info",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -144,
-        -80
+        896,
+        0
       ]
     },
     {
@@ -184,24 +187,24 @@
         },
         "options": {}
       },
-      "id": "24565447-137c-41a6-98eb-d58270afcb2c",
+      "id": "1b99f9d6-d404-4521-967a-c6374d6ad8a6",
       "name": "Shape Tool Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        80,
-        -80
+        1120,
+        0
       ]
     },
     {
       "parameters": {},
-      "id": "0e2471be-18dc-4a3d-9adb-7d7a55fb4ca8",
+      "id": "97e351b6-62e6-49dc-a2f8-c421c1deba05",
       "name": "Return Validation Error",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -144,
-        112
+        896,
+        192
       ]
     }
   ],
@@ -274,16 +277,18 @@
     "executionOrder": "v1",
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
-    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "errorWorkflow": "AdI8QEFabr5cBU54",
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": true
   },
-  "versionId": "1dc83e2e-5df7-446c-96b8-0ccab05d6680",
+  "versionId": "479129e3-c10b-4f27-be04-4e8caf2b71f7",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "a0269ca1da3ce34a94a1633ac6fd50ecd73b8d3fc4d655332dd5bb5b7c2cf1e8"
   },
   "nodeGroups": [],
-  "id": "18RWAM0O7WvIWRdn",
+  "id": "33KLEqYThxQo0W7R",
   "tags": []
 }

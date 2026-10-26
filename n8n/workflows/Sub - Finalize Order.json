@@ -14,10 +14,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.2,
       "position": [
-        -1744,
-        304
+        0,
+        288
       ],
-      "id": "e45661ae-366a-4568-98e5-b16eb903c981",
+      "id": "50fcf12a-e156-425b-bcd8-c51247d6e3ff",
       "name": "When Executed by Another Workflow"
     },
     {
@@ -27,10 +27,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -400,
-        112
+        1344,
+        96
       ],
-      "id": "8d969cfc-6d64-4ff0-8579-761645281667",
+      "id": "715ecac7-0c87-42ad-909e-3156ce2b7e06",
       "name": "Sum Total"
     },
     {
@@ -66,10 +66,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        48,
-        16
+        1792,
+        0
       ],
-      "id": "87fd2f2a-6f55-4c07-b5f4-25cb41135f7b",
+      "id": "24bb941a-5922-4613-9b9f-f99b95a0332c",
       "name": "Update Order"
     },
     {
@@ -89,23 +89,23 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -1520,
-        304
+        224,
+        288
       ],
-      "id": "5a099b6c-8cc4-4b4f-b2c0-98d3cfb5635c",
+      "id": "0e41a5a7-b004-4cc8-b2e8-ea4b637b29b2",
       "name": "Trim order_id"
     },
     {
       "parameters": {
-        "jsCode": "const order = $('Update Order').first().json;\nconst items = $('Get Order Items For Notification').all().map(i => i.json);\nconst menuItems = $('Get All Menu Items').all().map(m => m.json);\nconst customer = $('Get Customer Info').first().json;\n\n\nconst formBase = 'https://YOUR-INSTANCE.app.n8n.cloud/form/YOUR_FORM_ID';\nconst statusLink = `${formBase}?Order%20Number=${order.order_number}`;\n\n// Customer-typed text goes into an HTML email, so escape it\nconst esc = (s) => String(s ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;');\n\nconst lines = items.map(i => {\n  const menu = menuItems.find(m => m.id === i.menu_item_id);\n  return `${i.quantity}x ${esc(menu ? menu.name : 'Unknown')} — Rs. ${i.line_total}`;\n});\n\nconst isDelivery = order.fulfillment_type === 'Delivery';\nconst deliveryFee = Number(order.delivery_fee) || 0;\n\nlet fulfillmentHtml = `<p><b>Fulfillment:</b> ${esc(order.fulfillment_type || 'Not specified')}</p>`;\n\nif (isDelivery) {\n  const hasCoords = order.delivery_lat && order.delivery_lng;\n  const mapsLink = hasCoords\n    ? `https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`\n    : null;\n  const addressText = order.delivery_address\n    ? esc(order.delivery_address)\n    : (hasCoords ? 'Shared location pin' : 'Not provided');\n\n  fulfillmentHtml += `\n    <p><b>Delivery address:</b> ${addressText}</p>\n    ${mapsLink ? `<p><a href=\"${mapsLink}\">📍 Open in Google Maps</a></p>` : ''}\n    <p><b>Delivery fee:</b> Rs. ${deliveryFee}</p>`;\n}\n\nconst html = `\n  <h2>🛎️ New Order Confirmed — #${order.order_number}</h2>\n  <p><b>Customer:</b> ${esc(customer.name)} (${esc(customer.wa_id)})</p>\n  ${fulfillmentHtml}\n  <p><b>Items:</b><br>${lines.join('<br>')}</p>\n  <p><b>Total:</b> Rs. ${order.total_amount}</p>\n  <p>\n    <a href=\"${statusLink}\"\n       style=\"background:#2e7d32;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;display:inline-block;\">\n      Update Order Status\n    </a>\n  </p>\n  <p style=\"color:#888;font-size:12px;\">Order #${order.order_number}: Preparing → Out for Delivery → Delivered</p>\n`;\n\nreturn [{ json: { ...order, notification_html: html, items_text: lines.join('\\n') } }];"
+        "jsCode": "const order = $('Update Order').first().json;\nconst items = $('Get Order Items For Notification').all().map(i => i.json);\nconst menuItems = $('Get All Menu Items').all().map(m => m.json);\nconst customer = $('Get Customer Info').first().json;\n\n\nconst formBase = 'https://YOUR-INSTANCE.app.n8n.cloud/form/YOUR_FORM_ID';\nconst statusLink = `${formBase}?Order%20Number=${order.order_number}`;\n\n// Customer-typed text goes into an HTML email, so escape it\nconst esc = (s) => String(s ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;');\n\n// One line per menu item: quantities and prices of repeated rows are added together\nconst grouped = new Map();\nfor (const i of items) {\n  const g = grouped.get(i.menu_item_id) || { qty: 0, total: 0 };\n  g.qty += Number(i.quantity);\n  g.total += Number(i.line_total);\n  grouped.set(i.menu_item_id, g);\n}\nconst lines = [...grouped.entries()].map(([id, g]) => {\n  const menu = menuItems.find(m => m.id === id);\n  return `${g.qty}x ${esc(menu ? menu.name : 'Unknown')} — Rs. ${g.total}`;\n});\n\nconst isDelivery = order.fulfillment_type === 'Delivery';\nconst deliveryFee = Number(order.delivery_fee) || 0;\n\nlet fulfillmentHtml = `<p><b>Fulfillment:</b> ${esc(order.fulfillment_type || 'Not specified')}</p>`;\n\nif (isDelivery) {\n  const hasCoords = order.delivery_lat && order.delivery_lng;\n  const mapsLink = hasCoords\n    ? `https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`\n    : null;\n  const addressText = order.delivery_address\n    ? esc(order.delivery_address)\n    : (hasCoords ? 'Shared location pin' : 'Not provided');\n\n  fulfillmentHtml += `\n    <p><b>Delivery address:</b> ${addressText}</p>\n    ${mapsLink ? `<p><a href=\"${mapsLink}\">📍 Open in Google Maps</a></p>` : ''}\n    <p><b>Delivery fee:</b> Rs. ${deliveryFee}</p>`;\n}\n\nconst html = `\n  <h2>🛎️ New Order Confirmed — #${order.order_number}</h2>\n  <p><b>Customer:</b> ${esc(customer.name)} (${esc(customer.wa_id)})</p>\n  ${fulfillmentHtml}\n  <p><b>Items:</b><br>${lines.join('<br>')}</p>\n  <p><b>Total:</b> Rs. ${order.total_amount}</p>\n  <p>\n    <a href=\"${statusLink}\"\n       style=\"background:#2e7d32;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;display:inline-block;\">\n      Update Order Status\n    </a>\n  </p>\n  <p style=\"color:#888;font-size:12px;\">Order #${order.order_number}: Preparing → Out for Delivery → Delivered</p>\n`;\n\nreturn [{ json: { ...order, notification_html: html, items_text: lines.join('\\n') } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        944,
-        16
+        2688,
+        0
       ],
-      "id": "7e44e29e-c325-4694-b64f-de3f88326d3d",
+      "id": "02530a6f-b820-4e45-9f7c-f6ef91761cd6",
       "name": "Build Order Notification"
     },
     {
@@ -125,10 +125,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -624,
-        112
+        1120,
+        96
       ],
-      "id": "58c93335-546b-4f6f-bf4b-7fea6d3ef13c",
+      "id": "8d422d67-f238-40c5-b4b5-04fdaa40eb2c",
       "name": "Get Order Items For Total",
       "alwaysOutputData": true
     },
@@ -149,10 +149,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        272,
-        16
+        2016,
+        0
       ],
-      "id": "b2584a74-4fd3-43a3-a89c-6b45beeb0bf9",
+      "id": "1a8fd6bd-f9c6-44df-9386-354c5ebc172e",
       "name": "Get Order Items For Notification"
     },
     {
@@ -163,10 +163,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        496,
-        16
+        2240,
+        0
       ],
-      "id": "4d5a4474-aa75-45f0-9cc1-4950768412e9",
+      "id": "6b8aac6b-6db6-4577-b259-ca7913786c2b",
       "name": "Get All Menu Items"
     },
     {
@@ -186,10 +186,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        720,
-        16
+        2464,
+        0
       ],
-      "id": "3c194c6b-878f-4f10-874f-fef167389fc4",
+      "id": "ef07c33a-e3a6-4534-9800-4a85843d574d",
       "name": "Get Customer Info"
     },
     {
@@ -207,10 +207,10 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        1168,
-        16
+        2912,
+        0
       ],
-      "id": "81c4b465-4b03-44dc-aabf-613684144fab",
+      "id": "1974ead8-6b46-4d7f-9a1a-0e9adadfbcd2",
       "name": "Email Owner Notification",
       "onError": "continueRegularOutput"
     },
@@ -221,32 +221,44 @@
             {
               "id": "1922ee61-7b47-4514-89c0-3b8a63fd8485",
               "name": "order_id",
-              "value": "={{ $('Update Order').item.json.id }}",
-              "type": "string"
+              "type": "string",
+              "value": "={{ $('Update Order').item.json.id }}"
             },
             {
               "id": "8d3e369d-416c-48cf-8451-70e46b5d7616",
               "name": "status",
-              "value": "={{ $('Update Order').item.json.status }}",
-              "type": "string"
+              "type": "string",
+              "value": "={{ $('Update Order').item.json.status }}"
             },
             {
               "id": "db0a8eb5-250d-4cee-80b6-5728f7713a4e",
               "name": "total_amount",
-              "value": "={{ $('Update Order').item.json.total_amount }}",
-              "type": "number"
+              "type": "number",
+              "value": "={{ $('Update Order').item.json.total_amount }}"
             },
             {
               "id": "93132ba8-db9d-4f6a-84fb-349559ba474a",
               "name": "order_number",
-              "value": "={{ $('Update Order').item.json.order_number }}",
-              "type": "number"
+              "type": "number",
+              "value": "={{ $('Update Order').item.json.order_number }}"
             },
             {
               "id": "d56c2496-2454-406f-8c99-ff2f53573c39",
               "name": "items_text",
-              "value": "={{ $('Build Order Notification').first().json.items_text }}",
-              "type": "string"
+              "type": "string",
+              "value": "={{ $('Build Order Notification').first().json.items_text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>') }}"
+            },
+            {
+              "id": "d56c2496-2454-406f-8c99-ff2f53573c40",
+              "name": "fulfillment_type",
+              "type": "string",
+              "value": "={{ $('Update Order').item.json.fulfillment_type }}"
+            },
+            {
+              "id": "d56c2496-2454-406f-8c99-ff2f53573c41",
+              "name": "reply_text",
+              "type": "string",
+              "value": "={{ 'Your order is confirmed ✅ (Order #' + $('Update Order').item.json.order_number + ')\\n' + $('Build Order Notification').first().json.items_text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>') + '\\n' + ($('Update Order').item.json.fulfillment_type === 'Delivery' ? 'Delivery to: ' + ($('Update Order').item.json.delivery_address || 'your shared location') + '\\nDelivery fee: Rs. ' + ($('Update Order').item.json.delivery_fee || 0) : 'Pickup') + '\\nTotal: Rs. ' + $('Update Order').item.json.total_amount + '\\n\\nThank you for ordering! Enjoy your meal! 🍽️' }}"
             }
           ]
         },
@@ -255,10 +267,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1392,
-        16
+        3136,
+        0
       ],
-      "id": "7db37588-19af-4ec2-b53e-1e3f6fa14ac7",
+      "id": "b6a38eaa-6e6a-430d-8d8b-59941ed53212",
       "name": "Shape Tool Output"
     },
     {
@@ -279,10 +291,10 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -1296,
-        304
+        448,
+        288
       ],
-      "id": "3d758a44-fcde-462c-b73a-48e20eabdc5f",
+      "id": "8345c523-0c74-491b-bb7a-5149b9e109b5",
       "name": "Lookup Order For Status Check",
       "alwaysOutputData": true
     },
@@ -314,10 +326,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1072,
-        304
+        672,
+        288
       ],
-      "id": "c386864c-8e8d-41c7-b5a1-93b358cf201a",
+      "id": "b0e13a46-e1ca-4d3b-8574-deb76d93cc49",
       "name": "Is Order Pending?"
     },
     {
@@ -337,10 +349,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -848,
-        400
+        896,
+        384
       ],
-      "id": "9bcd40d8-aa47-4c09-81dd-c9e7365fd009",
+      "id": "18538f91-a553-41f2-b8d0-6761f250617a",
       "name": "Error: Order Not Open"
     },
     {
@@ -370,10 +382,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -176,
-        112
+        1568,
+        96
       ],
-      "id": "375e6330-8ab1-4517-98f8-9fb2115be8ff",
+      "id": "1f3aca7e-a25e-4a7a-a7f0-2add32ece2cf",
       "name": "Has Items?"
     },
     {
@@ -393,10 +405,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        48,
-        208
+        1792,
+        192
       ],
-      "id": "2cc77656-09fb-48be-a9a9-c3ba0eae5ce2",
+      "id": "0127c15e-0b26-4554-ac54-409af10bb823",
       "name": "Error: Empty Order"
     },
     {
@@ -427,10 +439,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -848,
-        208
+        896,
+        192
       ],
-      "id": "e4a9df6b-60a6-4f5b-9535-56d3e27c1e76",
+      "id": "691a8be1-fce5-440c-a301-57466c60b169",
       "name": "Delivery Info Set?"
     },
     {
@@ -450,10 +462,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -624,
-        304
+        1120,
+        288
       ],
-      "id": "06942011-290a-404e-8cbb-17bc245ff58f",
+      "id": "33f025a2-2871-441b-8455-0b9834c4e69f",
       "name": "Error: Delivery Details Missing"
     }
   ],
@@ -639,18 +651,18 @@
     "executionOrder": "v1",
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
-    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "errorWorkflow": "AdI8QEFabr5cBU54",
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": true
   },
-  "versionId": "7b0abf82-c57d-4ab8-b498-86c0b5620d6e",
+  "versionId": "c39b504e-bcae-4190-858b-863552dd0240",
   "meta": {
     "templateCredsSetupCompleted": true,
     "aiBuilderAssisted": true,
     "builderVariant": "mcp",
-    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+    "instanceId": "a0269ca1da3ce34a94a1633ac6fd50ecd73b8d3fc4d655332dd5bb5b7c2cf1e8"
   },
   "nodeGroups": [],
-  "id": "r6Vol4SSU3wIaQDh",
+  "id": "Wjf5rseA9swGfKoH",
   "tags": []
 }

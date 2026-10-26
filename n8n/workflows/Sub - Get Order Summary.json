@@ -17,7 +17,7 @@
         0,
         0
       ],
-      "id": "2265aa9b-bd71-497c-80f1-9474db83a7c1",
+      "id": "b5ec1274-62ce-4386-b61f-216cbfb144bc",
       "name": "When Executed by Another Workflow"
     },
     {
@@ -40,7 +40,7 @@
         224,
         0
       ],
-      "id": "3844dfa3-9f90-483e-9b88-03c8207d7158",
+      "id": "bd6afc18-15e7-48d3-9e27-e80d4beab0e6",
       "name": "Get Orders"
     },
     {
@@ -63,14 +63,18 @@
         448,
         0
       ],
-      "id": "1ac8d4ec-68a8-4444-8ff5-5e7522d39271",
+      "id": "05d0504c-d17d-4433-8d5f-996207fc99a8",
       "name": "Get Order Items",
       "alwaysOutputData": true
     },
     {
       "parameters": {
         "operation": "getAll",
-        "tableId": "menu_items"
+        "tableId": "menu_items",
+        "returnAll": true,
+        "filters": {
+          "conditions": []
+        }
       },
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -78,12 +82,12 @@
         672,
         0
       ],
-      "id": "020f1ce6-0064-4d68-997e-ac8848ef154a",
+      "id": "b08d375f-cdf1-42ac-8ec8-658a607aa94f",
       "name": "Get Menu Items"
     },
     {
       "parameters": {
-        "jsCode": "const order = $('Get Orders').first().json;\nconst items = $('Get Order Items').all().map(i => i.json).filter(i => i.id);\nconst menu = $('Get Menu Items').all().map(m => m.json);\nconst lines = items.map(i => `${i.quantity}x ${menu.find(m => m.id === i.menu_item_id)?.name ?? 'Unknown'} — Rs. ${i.line_total}`);\nconst subtotal = items.reduce((s, i) => s + Number(i.line_total), 0);\nconst fee = Number(order.delivery_fee || 0);\nreturn [{ json: {\n  items_text: lines.join('\\n'),\n  fulfillment_type: order.fulfillment_type || 'NOT SET',\n  delivery_location_saved: !!(order.delivery_address || (Number(order.delivery_lat) && Number(order.delivery_lng))),\n  subtotal, delivery_fee: fee, total: subtotal + fee\n}}];"
+        "jsCode": "const order = $('Get Orders').first().json;\nconst items = $('Get Order Items').all().map(i => i.json).filter(i => i.id);\nconst menu = $('Get Menu Items').all().map(m => m.json);\n\n// No Pickup/Delivery saved yet: refuse, so the assistant cannot invent one\nif (!order.fulfillment_type) {\n  return [{ json: {\n    error: 'Pickup or Delivery is NOT saved for this order, so there is no summary yet. Do NOT write a summary. If the customer\\'s latest message chose Pickup or Delivery, call Set Delivery Address now and then call Get Order Summary again. Otherwise ask exactly: Would you like Delivery (Rs. 100 fee) or Pickup?',\n    fulfillment_type: 'NOT SET'\n  }}];\n}\nif (!items.length) {\n  return [{ json: { error: 'This order has no items yet. Do NOT write a summary. Ask the customer what they would like to order.' } }];\n}\n\n// One line per menu item: quantities and prices of repeated rows are added together\nconst grouped = new Map();\nfor (const i of items) {\n  const g = grouped.get(i.menu_item_id) || { qty: 0, total: 0 };\n  g.qty += Number(i.quantity);\n  g.total += Number(i.line_total);\n  grouped.set(i.menu_item_id, g);\n}\nconst lines = [...grouped.entries()].map(([id, g]) => `${g.qty}x ${menu.find(m => m.id === id)?.name ?? 'Unknown'} — Rs. ${g.total}`);\n\nconst subtotal = items.reduce((s, i) => s + Number(i.line_total), 0);\nconst fee = Number(order.delivery_fee || 0);\nconst total = subtotal + fee;\nconst hasLoc = !!(Number(order.delivery_lat) && Number(order.delivery_lng));\nconst isDelivery = order.fulfillment_type === 'Delivery';\nconst address = order.delivery_address || (hasLoc ? 'your shared location' : '');\n\nconst reply_text = [\n  'Here\\'s your order 🧾',\n  ...lines,\n  ...(isDelivery ? [`Delivery to: ${address}`, `Delivery fee: Rs. ${fee}`] : ['Pickup']),\n  `Total: Rs. ${total}`,\n  '',\n  'Reply *YES* to confirm.'\n].join('\\n');\n\nreturn [{ json: {\n  items_text: lines.join('\\n'),\n  fulfillment_type: order.fulfillment_type,\n  delivery_location_saved: !!(order.delivery_address || hasLoc),\n  subtotal, delivery_fee: fee, total,\n  reply_text\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -91,7 +95,7 @@
         896,
         0
       ],
-      "id": "255af437-e53e-41ed-af87-2715d5916281",
+      "id": "d31dd423-640e-43ae-aba0-831d65472f79",
       "name": "Code in JavaScript"
     }
   ],
@@ -145,17 +149,19 @@
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
-    "availableInMCP": true,
     "timeSavedMode": "fixed",
-    "errorWorkflow": "PTUD8O1tOCGWR70O",
-    "callerPolicy": "workflowsFromSameOwner"
+    "errorWorkflow": "AdI8QEFabr5cBU54",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
   },
-  "versionId": "08c79101-524f-4727-aa8e-dd73a0154318",
+  "versionId": "2d2515b2-679e-4b9d-88c7-72c0a221118c",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "a0269ca1da3ce34a94a1633ac6fd50ecd73b8d3fc4d655332dd5bb5b7c2cf1e8"
   },
   "nodeGroups": [],
-  "id": "wjqpmd0QDR0wTap4",
+  "id": "pAHpb1wdoktd6tdr",
   "tags": []
 }

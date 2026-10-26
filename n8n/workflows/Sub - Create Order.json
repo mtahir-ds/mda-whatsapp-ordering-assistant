@@ -7,6 +7,9 @@
           "values": [
             {
               "name": "customer_id"
+            },
+            {
+              "name": "first_item_name"
             }
           ]
         }
@@ -14,10 +17,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        -80
+        0,
+        0
       ],
-      "id": "a52cf0cb-11a0-4b60-b7c7-49baf2c77efb",
+      "id": "0ae51837-dbc1-4bc1-ba7e-813e8ba3c23e",
       "name": "When Executed by Another Workflow"
     },
     {
@@ -43,11 +46,132 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -48,
-        -80
+        1040,
+        -48
       ],
-      "id": "19bdf63d-a33f-4dde-8295-55d0dc9aec49",
+      "id": "70ed4ced-21ca-4388-877d-196c41eb5971",
       "name": "Insert Pending Order"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "wa_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "4e4b90b8-fbe6-459d-af7a-42dd5cd1fa24",
+      "name": "Find Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = String($('When Executed by Another Workflow').first().json.customer_id || '').trim();\nconst isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);\nif (isUuid) return [{ json: { customer_id: raw } }];\nconst found = $('Find Customer').first().json || {};\nif (!found.id) throw new Error('Customer not found. Call Find or Create Customer first and use the customer_id it returns.');\nreturn [{ json: { customer_id: found.id } }];"
+      },
+      "id": "867e0d33-5bd8-47c5-874f-3296952235bd",
+      "name": "Resolve Customer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "menu_items",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_archived",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "ae1f270d-1c19-4f1e-a582-8cdecf94e693",
+      "name": "Get Live Menu Items",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const customer_id = $('Resolve Customer').first().json.customer_id;\nconst wanted = String($('When Executed by Another Workflow').first().json.first_item_name || '').trim().toLowerCase();\nconst menu = $input.all().map(i => i.json).filter(m => m.id && !m.is_archived);\nconst hit = wanted && menu.find(m => String(m.name).trim().toLowerCase() === wanted);\nif (!hit) {\n  return [{ json: { valid: false, error: 'No order was created because the customer has not chosen one specific menu item yet. Ask which item they want (if their word fits several items, list those options) and only call Create Order after they choose. Pass the exact menu item name in first_item_name.' } }];\n}\nreturn [{ json: { valid: true, customer_id } }];"
+      },
+      "id": "5e267843-73c2-4ba8-868b-8559e3002e1f",
+      "name": "Validate First Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1d2e3f4-0001-4000-8000-000000000001",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          }
+        },
+        "options": {}
+      },
+      "id": "8cbc8a08-a3f7-47a4-b287-5852be0de109",
+      "name": "Item Chosen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ace03117-0c36-4529-9a05-c0bfd1583686",
+      "name": "Return Item Error",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        128
+      ]
     }
   ],
   "connections": {
@@ -55,7 +179,69 @@
       "main": [
         [
           {
+            "node": "Find Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Customer": {
+      "main": [
+        [
+          {
+            "node": "Get Live Menu Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Live Menu Items": {
+      "main": [
+        [
+          {
+            "node": "Validate First Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate First Item": {
+      "main": [
+        [
+          {
+            "node": "Item Chosen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Item Chosen?": {
+      "main": [
+        [
+          {
             "node": "Insert Pending Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Item Error",
             "type": "main",
             "index": 0
           }
@@ -68,16 +254,18 @@
     "executionOrder": "v1",
     "binaryMode": "separate",
     "timeSavedMode": "fixed",
-    "errorWorkflow": "PTUD8O1tOCGWR70O",
+    "errorWorkflow": "AdI8QEFabr5cBU54",
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": true
   },
-  "versionId": "24193976-b7ec-4db1-a8dd-c994c374b993",
+  "versionId": "00dc5b5c-854c-4c65-8cdb-75312a22b081",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "ff121fb2a564e6d5820044b2cf2e205547904664478d074c1ecc738a09cd30bf"
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "a0269ca1da3ce34a94a1633ac6fd50ecd73b8d3fc4d655332dd5bb5b7c2cf1e8"
   },
   "nodeGroups": [],
-  "id": "ojetmkZlu29UsYxH",
+  "id": "CXIIUOr1LS0T41Yy",
   "tags": []
 }
